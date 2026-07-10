@@ -21,11 +21,11 @@ struct SessionVerificationViewModelTests {
         sessionVerificationController = SessionVerificationControllerProxyMock.configureMock()
         viewModel = SessionVerificationScreenViewModel(sessionVerificationControllerProxy: sessionVerificationController,
                                                        flow: .deviceInitiator,
-                                                       appSettings: AppSettings(),
-                                                       mediaProvider: MediaProviderMock(configuration: .init()))
+                                                       appSettings: .volatile(),
+                                                       mediaProvider: MediaProviderMock(.init()))
         context = viewModel.context
     }
-
+    
     @Test
     func requestVerification() async throws {
         #expect(context.viewState.verificationState == .initial)
@@ -58,7 +58,7 @@ struct SessionVerificationViewModelTests {
         context.send(viewAction: .restart)
         
         #expect(context.viewState.verificationState == .initial)
-
+        
         #expect(sessionVerificationController.requestDeviceVerificationCallsCount == 1)
         #expect(sessionVerificationController.cancelVerificationCallsCount == 1)
     }
@@ -74,7 +74,9 @@ struct SessionVerificationViewModelTests {
         
         let deferred = deferFulfillment(sessionVerificationController.actions
             .delay(for: .seconds(0.1), scheduler: DispatchQueue.main)) { callback in
-                if case .finished = callback { return true }
+                if case .finished = callback {
+                    return true
+                }
                 return false
             }
         
@@ -92,7 +94,9 @@ struct SessionVerificationViewModelTests {
         
         let deferred = deferFulfillment(sessionVerificationController.actions
             .delay(for: .seconds(0.1), scheduler: DispatchQueue.main)) { callback in
-                if case .cancelled = callback { return true }
+                if case .cancelled = callback {
+                    return true
+                }
                 return false
             }
         

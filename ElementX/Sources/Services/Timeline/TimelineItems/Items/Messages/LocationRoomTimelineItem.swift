@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct LocationRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
+nonisolated struct LocationRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
     let id: TimelineItemIdentifier
     let timestamp: Date
     let isOutgoing: Bool
@@ -16,15 +16,15 @@ struct LocationRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatabl
     let canBeRepliedTo: Bool
     
     let sender: TimelineItemSender
-
+    
     let content: LocationRoomTimelineItemContent
     
     var properties = RoomTimelineItemProperties()
-
+    
     var body: String {
         content.body
     }
-
+    
     var contentType: EventBasedMessageTimelineItemContentType {
         .location(content)
     }

@@ -19,7 +19,7 @@ enum SecureBackupRecoveryKeyScreenCoordinatorAction {
     case complete
 }
 
-final class SecureBackupRecoveryKeyScreenCoordinator: CoordinatorProtocol {
+final class SecureBackupRecoveryKeyScreenCoordinator: SecureBackupRecoveryKeyCoordinatorProtocol {
     private let parameters: SecureBackupRecoveryKeyScreenCoordinatorParameters
     private var viewModel: SecureBackupRecoveryKeyScreenViewModelProtocol
     
@@ -72,7 +72,7 @@ final class SecureBackupRecoveryKeyScreenCoordinator: CoordinatorProtocol {
         parameters.userIndicatorController.submitIndicator(.init(id: .init(),
                                                                  type: .toast(progress: nil),
                                                                  title: title,
-                                                                 iconName: "checkmark",
+                                                                 icon: \.check,
                                                                  persistent: false))
     }
 }

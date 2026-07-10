@@ -17,24 +17,27 @@ import SwiftUI
         var dismissalCallback: (() -> Void)?
     }
     
-    @MainActor
     @Observable class TabDetails {
         /// A unique tab that identifies the tab for selection.
         let tag: Tag
         let title: String
         let icon: KeyPath<CompoundIcons, Image>
         let selectedIcon: KeyPath<CompoundIcons, Image>
+        /// When `true` the tab is given the `.search` role, which on iOS 26 detaches it
+        /// into the trailing search button in the tab bar.
+        let isSearch: Bool
         var badgeCount = 0
         
         /// Provide the tab's split coordinator in here to have the tab bar automatically hidden
         /// when pushing a child into the split view's details on iPhone/compact iPad.
         weak var navigationSplitCoordinator: NavigationSplitCoordinator?
         
-        init(tag: Tag, title: String, icon: KeyPath<CompoundIcons, Image>, selectedIcon: KeyPath<CompoundIcons, Image>) {
+        init(tag: Tag, title: String, icon: KeyPath<CompoundIcons, Image>, selectedIcon: KeyPath<CompoundIcons, Image>, isSearch: Bool = false) {
             self.tag = tag
             self.title = title
             self.icon = icon
             self.selectedIcon = selectedIcon
+            self.isSearch = isSearch
         }
         
         func barVisibility(in horizontalSizeClass: UserInterfaceSizeClass?) -> Visibility {
@@ -57,8 +60,8 @@ import SwiftUI
         var id: ObjectIdentifier {
             module.id
         }
-
-        @MainActor var coordinator: CoordinatorProtocol? {
+        
+        var coordinator: CoordinatorProtocol? {
             module.coordinator
         }
     }
@@ -97,7 +100,16 @@ import SwiftUI
     }
     
     /// The currently selected tab's tag.
-    var selectedTab: Tag?
+    var selectedTab: Tag? {
+        didSet {
+            if oldValue != selectedTab {
+                previousTab = oldValue
+            }
+        }
+    }
+    
+    /// The tab that was selected before the current one, used to return to it (e.g. cancelling search).
+    private(set) var previousTab: Tag?
     
     // MARK: Sheets
     
@@ -137,10 +149,10 @@ import SwiftUI
         if sheetModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             sheetModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
@@ -183,10 +195,10 @@ import SwiftUI
         if fullScreenCoverModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             fullScreenCoverModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
@@ -234,10 +246,10 @@ import SwiftUI
         if overlayModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             overlayPresentationMode = presentationMode
             overlayModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
@@ -295,18 +307,18 @@ private struct NavigationTabCoordinatorView<Tag: Hashable>: View {
     var body: some View {
         TabView(selection: $navigationTabCoordinator.selectedTab) {
             ForEach(navigationTabCoordinator.tabModules) { module in
-                module.coordinator?.toPresentable()
-                    .id(module.id)
-                    .tabItem {
-                        Label {
-                            Text(module.details.title)
-                        } icon: {
-                            CompoundIcon(module.details.tag == navigationTabCoordinator.selectedTab ? module.details.selectedIcon : module.details.icon)
-                        }
+                Tab(value: module.details.tag, role: module.details.isSearch ? .search : nil) {
+                    module.coordinator?.toPresentable()
+                        .id(module.id)
+                        .toolbar(module.details.barVisibility(in: horizontalSizeClass), for: .tabBar)
+                } label: {
+                    Label {
+                        Text(module.details.title)
+                    } icon: {
+                        CompoundIcon(module.details.tag == navigationTabCoordinator.selectedTab ? module.details.selectedIcon : module.details.icon)
                     }
-                    .tag(module.details.tag)
-                    .badge(module.details.badgeCount)
-                    .toolbar(module.details.barVisibility(in: horizontalSizeClass), for: .tabBar)
+                }
+                .badge(module.details.badgeCount)
             }
         }
         .backportTabBarMinimizeBehaviorOnScrollDown()

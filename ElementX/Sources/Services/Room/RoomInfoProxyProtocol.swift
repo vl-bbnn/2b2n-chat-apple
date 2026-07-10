@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-protocol BaseRoomInfoProxyProtocol {
+nonisolated protocol BaseRoomInfoProxyProtocol: Sendable {
     var id: String { get }
     var displayName: String? { get }
     var topic: String? { get }
@@ -25,7 +25,7 @@ protocol BaseRoomInfoProxyProtocol {
 }
 
 // sourcery: AutoMockable
-protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
+nonisolated protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
     var id: String { get }
     var creators: [String] { get }
     var displayName: String? { get }
@@ -33,7 +33,7 @@ protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
     var topic: String? { get }
     /// The room's avatar URL. Use this for editing and favour ``avatar`` for display.
     var avatarURL: URL? { get }
-
+    
     var isEncrypted: Bool { get }
     var isDirect: Bool { get }
     var isDM: Bool { get }
@@ -58,6 +58,7 @@ protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
     var unreadMessagesCount: UInt { get }
     var unreadNotificationsCount: UInt { get }
     var unreadMentionsCount: UInt { get }
+    var fullyReadEventID: String? { get }
     var pinnedEventIDs: Set<String> { get }
     var joinRule: JoinRule? { get }
     var historyVisibility: RoomHistoryVisibility { get }
@@ -77,7 +78,7 @@ extension BaseRoomInfoProxyProtocol {
         }
         
         if isDirect, avatarURL == nil, heroes.count == 1 {
-            return .heroes(heroes.map(UserProfileProxy.init))
+            return .heroes(heroes.map(UserProfile.init))
         }
         
         return .room(id: id, name: displayName, avatarURL: avatarURL)
@@ -120,7 +121,7 @@ extension RoomInfoProxyProtocol {
         }
         
         // Otherwise check the alternative aliases and return the first one that matches
-        if let matchingAlternativeAlias = alternativeAliases.filter({ $0.range(of: serverName) != nil }).first {
+        if let matchingAlternativeAlias = alternativeAliases.first(where: { $0.range(of: serverName) != nil }) {
             return matchingAlternativeAlias
         }
         

@@ -33,7 +33,7 @@ struct RoomPollsHistoryScreenViewState: BindableState {
 struct RoomPollsHistoryScreenViewStateBindings {
     /// Polls list filter
     var filter: RoomPollsHistoryFilter
-
+    
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<RoomPollsHistoryScreenErrorType>?
 }
@@ -42,7 +42,7 @@ enum RoomPollsHistoryScreenViewAction {
     case filter(RoomPollsHistoryFilter)
     case end(pollStartID: String)
     case edit(pollStartID: String, poll: Poll)
-    case sendPollResponse(pollStartID: String, optionID: String)
+    case sendPollResponse(pollStartID: String, answerIDs: [String])
     case loadMore
 }
 

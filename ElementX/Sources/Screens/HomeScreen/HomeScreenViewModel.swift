@@ -16,7 +16,7 @@ typealias HomeScreenViewModelType = StateStoreViewModel<HomeScreenViewState, Hom
 class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol {
     private let userSession: UserSessionProtocol
     private let spaceFilterSubject: CurrentValueSubject<SpaceServiceFilter?, Never>
-    private let analyticsService: AnalyticsService
+    private let analyticsService: AnalyticsServiceProtocol
     private let appSettings: AppSettings
     private let notificationManager: NotificationManagerProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
@@ -32,7 +32,7 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
     init(userSession: UserSessionProtocol,
          selectedRoomPublisher: CurrentValuePublisher<String?, Never>,
          appSettings: AppSettings,
-         analyticsService: AnalyticsService,
+         analyticsService: AnalyticsServiceProtocol,
          notificationManager: NotificationManagerProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.userSession = userSession
@@ -45,18 +45,17 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
         
         roomSummaryProvider = userSession.clientProxy.roomSummaryProvider
         
-        super.init(initialViewState: .init(userID: userSession.clientProxy.userID,
+        super.init(initialViewState: .init(userProfile: userSession.clientProxy.userProfilePublisher.value,
                                            bindings: .init(filtersState: .init(appSettings: appSettings))),
                    mediaProvider: userSession.mediaProvider)
         
-        userSession.clientProxy.userAvatarURLPublisher
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.userAvatarURL, on: self)
-            .store(in: &cancellables)
+        if appSettings.globalSearchEnabled, #available(iOS 26.0, *) {
+            state.isRoomListSearchEnabled = false
+        }
         
-        userSession.clientProxy.userDisplayNamePublisher
+        userSession.clientProxy.userProfilePublisher
             .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.userDisplayName, on: self)
+            .weakAssign(to: \.state.userProfile, on: self)
             .store(in: &cancellables)
         
         userSession.sessionSecurityStatePublisher
@@ -114,21 +113,21 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
             .weakAssign(to: \.state.selectedRoomID, on: self)
             .store(in: &cancellables)
         
-        appSettings.$roomListActivityVisibility
+        appSettings.roomListActivityVisibilityPublisher
             .sink { [weak self] value in
                 self?.state.roomListActivityVisibility = value
                 self?.updateRooms()
             }
             .store(in: &cancellables)
         
-        appSettings.$seenInvites
+        appSettings.seenInvitesPublisher
             .removeDuplicates()
             .sink { [weak self] _ in
                 self?.updateRooms()
             }
             .store(in: &cancellables)
         
-        appSettings.$hasSeenNewSoundBanner
+        appSettings.hasSeenNewSoundBannerPublisher
             .sink { [weak self] hasSeenNewSoundBanner in
                 self?.state.shouldShowNewSoundBanner = !hasSeenNewSoundBanner
             }
@@ -349,12 +348,11 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
         // Delay user profile detail loading until after the initial room list loads
         if roomListMode == .rooms {
             Task {
-                await self.userSession.clientProxy.loadUserAvatarURL()
-                await self.userSession.clientProxy.loadUserDisplayName()
+                await self.userSession.clientProxy.loadUserProfile()
             }
         }
     }
-        
+    
     private func updateRooms() {
         guard let roomSummaryProvider else {
             MXLog.error("Room summary provider unavailable")
@@ -453,7 +451,7 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
         userIndicatorController.submitIndicator(UserIndicator(id: UUID().uuidString,
                                                               type: .toast,
                                                               title: L10n.commonCurrentUserLeftRoom,
-                                                              iconName: "checkmark"))
+                                                              icon: \.check))
         actionsSubject.send(.roomLeft(roomIdentifier: roomID))
     }
     

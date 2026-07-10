@@ -10,9 +10,10 @@ import Compound
 import LRUCache
 import MatrixRustSDK
 import SwiftSoup
+import Synchronization
 import UIKit
 
-protocol MentionBuilderProtocol {
+nonisolated protocol MentionBuilderProtocol: Sendable {
     func handleUserMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, userID: String, userDisplayName: String?)
     func handleRoomIDMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, roomID: String)
     func handleRoomAliasMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, roomAlias: String, roomDisplayName: String?)
@@ -21,7 +22,7 @@ protocol MentionBuilderProtocol {
     func handleAllUsersMention(for attributedString: NSMutableAttributedString, in range: NSRange)
 }
 
-extension NSAttributedString.Key {
+nonisolated extension NSAttributedString.Key {
     static let MatrixBlockquote: NSAttributedString.Key = .init(rawValue: BlockquoteAttribute.name)
     static let MatrixUserID: NSAttributedString.Key = .init(rawValue: UserIDAttribute.name)
     static let MatrixUserDisplayName: NSAttributedString.Key = .init(rawValue: UserDisplayNameAttribute.name)
@@ -35,25 +36,24 @@ extension NSAttributedString.Key {
     static let InlineCode: NSAttributedString.Key = .init(rawValue: InlineCodeAttribute.name)
 }
 
-struct AttributedStringBuilder: AttributedStringBuilderProtocol {
+nonisolated struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     private static let defaultKey = "default"
     
     private let cacheKey: String
     private let mentionBuilder: MentionBuilderProtocol
     
     private static let attributeMSC4286 = "msc4286-external-payment-details"
-    private static let cacheDispatchQueue = DispatchQueue(label: "io.element.elementx.attributed_string_builder_v2_cache")
-    private static var caches: [String: LRUCache<String, AttributedString>] = [:]
-
+    private static let caches = Mutex<[String: LRUCache<String, AttributedString>]>([:])
+    
     static func invalidateCaches() {
-        caches.removeAll()
+        caches.withLock { $0.removeAll() }
     }
     
     init(cacheKey: String = defaultKey, mentionBuilder: MentionBuilderProtocol) {
         self.cacheKey = cacheKey
         self.mentionBuilder = mentionBuilder
     }
-        
+    
     func fromPlain(_ string: String?) -> AttributedString? {
         guard let string else {
             return nil
@@ -62,7 +62,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         if let cached = Self.cachedValue(forKey: string, cacheKey: cacheKey) {
             return cached
         }
-
+        
         let mutableAttributedString = NSMutableAttributedString(string: string)
         addLinksAndMentions(mutableAttributedString)
         addMatrixEntityPermalinkAttributesTo(mutableAttributedString)
@@ -72,7 +72,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         
         return result
     }
-        
+    
     /// Do not use the default HTML renderer of NSAttributedString because this method
     /// runs on the UI thread which we want to avoid because renderHTMLString is called
     /// most of the time from a background thread.
@@ -84,7 +84,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         if let cached = Self.cachedValue(forKey: originalHTMLString, cacheKey: cacheKey) {
             return cached
         }
-                
+        
         let htmlString = originalHTMLString.replacingHtmlBreaksOccurrences()
         
         let doc = try? SwiftSoup.parseBodyFragment(htmlString)
@@ -105,7 +105,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         
         return result
     }
-        
+    
     // MARK: - Private
     
     // swiftlint:disable:next function_body_length cyclomatic_complexity
@@ -133,7 +133,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 if (node.previousSibling() as? Element)?.tagName() == "br" {
                     text.trimPrefix(" ")
                 }
-                 
+                
                 result.append(NSAttributedString(string: text))
                 continue
             }
@@ -155,7 +155,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.append(NSAttributedString(string: "\n"))
                 content.setFontPreservingSymbolicTraits(UIFont.boldSystemFont(ofSize: size))
-
+                
             case "p", "div":
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.append(NSAttributedString(string: "\n"))
@@ -245,7 +245,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 if indentLevel > 0 || !element.ownText().isEmpty {
                     content.insert(NSAttributedString("\n"), at: 0)
                 }
-
+                
             case "li":
                 var bullet = String(repeating: "  ", count: indentLevel)
                 if listTag == "ol" {
@@ -279,7 +279,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     }
     
     private static func cacheValue(_ value: AttributedString?, forKey key: String, cacheKey: String) {
-        cacheDispatchQueue.sync {
+        caches.withLock { caches in
             if caches[cacheKey] == nil {
                 caches[cacheKey] = LRUCache<String, AttributedString>(countLimit: 1000)
             }
@@ -289,12 +289,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     }
     
     private static func cachedValue(forKey key: String, cacheKey: String) -> AttributedString? {
-        var result: AttributedString?
-        cacheDispatchQueue.sync {
-            result = caches[cacheKey]?.value(forKey: key)
-        }
-        
-        return result
+        caches.withLock { $0[cacheKey]?.value(forKey: key) }
     }
     
     // swiftlint:disable:next cyclomatic_complexity
@@ -310,7 +305,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             }
             
             let identifier = String(string[matchRange])
-
+            
             return TextParsingMatch(type: .userID(identifier: identifier), range: match.range)
         }
         
@@ -376,7 +371,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             if hasLink {
                 return
             }
-                        
+            
             switch match.type {
             case .atRoom:
                 attributedString.addAttribute(.MatrixAllUsersMention, value: true, range: match.range)
@@ -425,7 +420,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             }
         }
     }
-        
+    
     private func detectPhishingAttempts(_ attributedString: NSMutableAttributedString) {
         attributedString.enumerateAttribute(.link, in: .init(location: 0, length: attributedString.length), options: []) { value, range, _ in
             guard value != nil, let internalURL = value as? URL else {
@@ -473,7 +468,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     }
 }
 
-private struct TextParsingMatch {
+private nonisolated struct TextParsingMatch {
     enum MatchType {
         case userID(identifier: String)
         case roomAlias(alias: String)
@@ -497,7 +492,7 @@ private struct TextParsingMatch {
     }
 }
 
-private extension NSMutableAttributedString {
+private nonisolated extension NSMutableAttributedString {
     func setFontPreservingSymbolicTraits(_ newFont: UIFont) {
         enumerateAttribute(.font, in: NSRange(location: 0, length: length)) { value, range, _ in
             if let oldFont = value as? UIFont {
@@ -517,7 +512,7 @@ private extension NSMutableAttributedString {
     }
 }
 
-private extension NSString {
+private nonisolated extension NSString {
     func hasSuffixCharacter(from characterSet: CharacterSet) -> Bool {
         if length == 0 {
             return false

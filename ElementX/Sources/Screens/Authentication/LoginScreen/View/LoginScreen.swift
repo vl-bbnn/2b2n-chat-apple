@@ -61,17 +61,11 @@ struct LoginScreen: View {
     /// The form with text fields for username and password, along with a submit button.
     var loginForm: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(L10n.screenLoginFormHeader)
-                .font(.compound.bodySM)
-                .foregroundColor(.compound.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            
             TextField(text: $context.username) {
                 Text(L10n.commonUsername).foregroundColor(.compound.textSecondary)
             }
             .focused($isUsernameFocused)
-            .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
+            .textFieldStyle(.compound(labelText: L10n.screenLoginFormHeader, accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
             .disableAutocorrection(true)
             .textContentType(.username)
             .autocapitalization(.none)
@@ -86,13 +80,13 @@ struct LoginScreen: View {
                 Text(L10n.commonPassword).foregroundColor(.compound.textSecondary)
             }
             .focused($isPasswordFocused)
-            .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+            .textFieldStyle(.compound(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
             .textContentType(.password)
             .submitLabel(.done)
             .onSubmit(submit)
             
             Spacer().frame(height: 32)
-
+            
             Button(action: submit) {
                 Text(L10n.actionContinue)
             }
@@ -129,6 +123,7 @@ struct LoginScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct LoginScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel()
     static let credentialsViewModel = makeViewModel(withCredentials: true)
@@ -158,14 +153,11 @@ struct LoginScreen_Previews: PreviewProvider, TestablePreview {
         
         Task { await authenticationService.configure(for: homeserverAddress, flow: .login) }
         
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-        
         let viewModel = LoginScreenViewModel(authenticationService: authenticationService,
                                              loginHint: nil,
                                              userIndicatorController: UserIndicatorControllerMock(),
-                                             appSettings: appSettings,
-                                             analytics: analytics)
+                                             appSettings: .volatile(),
+                                             analytics: AnalyticsServiceMock(.init()))
         
         if withCredentials {
             viewModel.context.username = "alice"

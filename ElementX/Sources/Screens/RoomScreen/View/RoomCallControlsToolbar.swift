@@ -31,35 +31,39 @@ struct RoomCallControlsToolbar: ToolbarContent {
                             Button {
                                 onCallTap(true)
                             } label: {
-                                Label(L10n.a11yStartVoiceCall, icon: \.voiceCallSolid)
+                                Label(L10n.actionVoiceCall, icon: \.voiceCallSolid)
                             }
-                                
+                            
                             Button {
                                 onCallTap(false)
                             } label: {
-                                Label(L10n.a11yStartVideoCall, icon: \.videoCallSolid)
+                                Label(L10n.actionVideoCall, icon: \.videoCallSolid)
                             }
                         } label: {
-                            CompoundIcon(\.voiceCallSolid)
+                            HStack(spacing: 2) {
+                                CompoundIcon(\.voiceCallSolid)
+                                CompoundIcon(\.chevronDown, size: .xSmall, relativeTo: .compound.bodyLG)
+                            }
                         }
                         .accessibilityLabel(L10n.a11yStartCall)
                         .disabled(!viewState.canJoinCall)
                     }
                 } else {
                     ToolbarItem(placement: .primaryAction) {
-                        Button { onCallTap(true) } label: {
-                            CompoundIcon(\.voiceCallSolid)
-                        }
-                        .accessibilityLabel(L10n.a11yStartVoiceCall)
-                        .accessibilityIdentifier(A11yIdentifiers.roomScreen.startVoiceCall)
-                        .disabled(!viewState.canJoinCall)
-                    }
-                    ToolbarItem(placement: .primaryAction) {
                         Button { onCallTap(false) } label: {
                             CompoundIcon(\.videoCallSolid)
                         }
                         .accessibilityLabel(L10n.a11yStartVideoCall)
                         .accessibilityIdentifier(A11yIdentifiers.roomScreen.startVideoCall)
+                        .disabled(!viewState.canJoinCall)
+                    }
+                    
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { onCallTap(true) } label: {
+                            CompoundIcon(\.voiceCallSolid)
+                        }
+                        .accessibilityLabel(L10n.a11yStartVoiceCall)
+                        .accessibilityIdentifier(A11yIdentifiers.roomScreen.startVoiceCall)
                         .disabled(!viewState.canJoinCall)
                     }
                 }

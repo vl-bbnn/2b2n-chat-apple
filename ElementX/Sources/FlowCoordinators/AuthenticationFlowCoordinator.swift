@@ -10,7 +10,6 @@ import Combine
 import SwiftState
 import SwiftUI
 
-@MainActor
 protocol AuthenticationFlowCoordinatorDelegate: AnyObject {
     func authenticationFlowCoordinator(didLoginWithSession userSession: UserSessionProtocol)
 }
@@ -23,7 +22,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     private let appMediator: AppMediatorProtocol
     private let appSettings: AppSettings
     private let appHooks: AppHooks
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     
     enum State: StateType {
@@ -109,7 +108,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
          appMediator: AppMediatorProtocol,
          appSettings: AppSettings,
          appHooks: AppHooks,
-         analytics: AnalyticsService,
+         analytics: AnalyticsServiceProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
         self.bugReportService = bugReportService
@@ -276,7 +275,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         let mediaProvider = authenticationService.classicAppAccount.map { account in
             MediaProvider(mediaLoader: ClassicAppMediaLoader(classicAppAccount: account),
                           imageCache: .onlyInMemory,
-                          homeserverReachabilityPublisher: appMediator.networkMonitor.reachabilityPublisher) // Close enough approximation
+                          homeserverReachabilityPublisher: appMediator.networkMonitor.reachabilityPublisher.map(HomeserverReachability.init)) // Close enough approximation
         }
         
         let parameters = AuthenticationStartScreenParameters(authenticationService: authenticationService,
@@ -304,7 +303,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                     showOAuthAuthentication(oAuthData: oAuthData, presentationAnchor: window)
                 case .loginDirectlyWithPassword(let loginHint):
                     stateMachine.tryEvent(.continueWithPassword, userInfo: loginHint)
-                
+                    
                 case .reportProblem:
                     stateMachine.tryEvent(.reportProblem)
                 case .developerOptions:
@@ -451,7 +450,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         coordinator.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
@@ -509,7 +508,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     // MARK: - Completion
-        
+    
     private func userHasSignedIn(userSession: UserSessionProtocol) {
         delegate?.authenticationFlowCoordinator(didLoginWithSession: userSession)
     }

@@ -19,7 +19,7 @@ struct UserSessionFlowCoordinatorTests {
     private let stateMachineFactory = PublishedStateMachineFactory()
     
     private let networkReachabilitySubject: CurrentValueSubject<NetworkMonitorReachability, Never> = .init(.reachable)
-    private let homeserverReachabilitySubject: CurrentValueSubject<NetworkMonitorReachability, Never> = .init(.reachable)
+    private let homeserverReachabilitySubject: CurrentValueSubject<HomeserverReachability, Never> = .init(.reachable)
     private var cancellables = Set<AnyCancellable>()
     
     private var tabCoordinator: NavigationTabCoordinator<UserSessionFlowCoordinator.HomeTab>? {
@@ -44,14 +44,14 @@ struct UserSessionFlowCoordinatorTests {
         let clientProxy = ClientProxyMock(.init(userID: "hi@bob", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
         clientProxy.homeserverReachabilityPublisher = homeserverReachabilitySubject.asCurrentValuePublisher()
         
-        let networkMonitor = NetworkMonitorMock.default
+        let networkMonitor = NetworkMonitorMock(.init())
         networkMonitor.reachabilityPublisher = networkReachabilitySubject.asCurrentValuePublisher()
-        let appMediator = AppMediatorMock.default
+        let appMediator = AppMediatorMock(.init())
         appMediator.networkMonitor = networkMonitor
         
-        userIndicatorController = UserIndicatorControllerMock.default
-        let appSettings = AppSettings()
-
+        userIndicatorController = UserIndicatorControllerMock()
+        let appSettings = AppSettings.volatile()
+        
         let flowParameters = CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
                                                   bugReportService: BugReportServiceMock(.init()),
                                                   elementCallService: ElementCallServiceMock(.init()),
@@ -61,7 +61,7 @@ struct UserSessionFlowCoordinatorTests {
                                                   appMediator: appMediator,
                                                   appSettings: appSettings,
                                                   appHooks: AppHooks(),
-                                                  analytics: .mock(settings: appSettings),
+                                                  analytics: AnalyticsServiceMock(.init()),
                                                   userIndicatorController: userIndicatorController,
                                                   notificationManager: NotificationManagerMock(),
                                                   stateMachineFactory: stateMachineFactory)
@@ -228,6 +228,14 @@ struct UserSessionFlowCoordinatorTests {
         // Then the indicator should be hidden now as everything is back to normal
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3)
         #expect(retractReachabilityIndicatorCallsCount == 2)
+        
+        // When the client is suspended.
+        homeserverReachabilitySubject.send(.suspended)
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Then no unreachable indicator should be shown as the pause is intentional.
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3)
+        #expect(retractReachabilityIndicatorCallsCount == 3)
     }
     
     // MARK: - Helpers

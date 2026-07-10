@@ -28,7 +28,7 @@ struct SecureBackupLogoutConfirmationScreen: View {
         .backgroundStyle(.compound.bgCanvasDefault)
         .alert(item: $context.alertInfo)
     }
-        
+    
     @ViewBuilder
     private var content: some View {
         Text(title)
@@ -110,6 +110,7 @@ struct SecureBackupLogoutConfirmationScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct SecureBackupLogoutConfirmationScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel(mode: .saveRecoveryKey)
     static let waitingViewModel = makeViewModel(mode: .waitingToStart(hasStalled: false))
@@ -150,7 +151,7 @@ struct SecureBackupLogoutConfirmationScreen_Previews: PreviewProvider, TestableP
     
     static func makeViewModel(mode: SecureBackupLogoutConfirmationScreenViewMode) -> SecureBackupLogoutConfirmationScreenViewModel {
         let secureBackupController = SecureBackupControllerMock()
-        secureBackupController.underlyingKeyBackupState = CurrentValueSubject<SecureBackupKeyBackupState, Never>(.enabled).asCurrentValuePublisher()
+        secureBackupController.keyBackupState = CurrentValueSubject<SecureBackupKeyBackupState, Never>(.enabled).asCurrentValuePublisher()
         
         secureBackupController.waitForKeyBackupUploadUploadStateSubjectClosure = { uploadStateSubject in
             if case .backupOngoing = mode {
@@ -160,7 +161,7 @@ struct SecureBackupLogoutConfirmationScreen_Previews: PreviewProvider, TestableP
             return .success(())
         }
         
-        let reachability: NetworkMonitorReachability = mode == .offline ? .unreachable : .reachable
+        let reachability: HomeserverReachability = mode == .offline ? .unreachable : .reachable
         
         let viewModel = SecureBackupLogoutConfirmationScreenViewModel(secureBackupController: secureBackupController,
                                                                       homeserverReachabilityPublisher: .init(reachability))

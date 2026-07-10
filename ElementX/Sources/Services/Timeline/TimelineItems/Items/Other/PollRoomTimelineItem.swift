@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct PollRoomTimelineItem: Equatable, EventBasedTimelineItemProtocol {
+nonisolated struct PollRoomTimelineItem: Equatable, EventBasedTimelineItemProtocol {
     let id: TimelineItemIdentifier
     let poll: Poll
     let body: String
@@ -20,7 +20,7 @@ struct PollRoomTimelineItem: Equatable, EventBasedTimelineItemProtocol {
     var properties: RoomTimelineItemProperties
 }
 
-struct Poll: Hashable {
+nonisolated struct Poll: Hashable {
     let question: String
     let kind: Kind
     let maxSelections: Int
@@ -29,11 +29,11 @@ struct Poll: Hashable {
     let endDate: Date?
     /// Whether the poll has been created by the account owner
     let createdByAccountOwner: Bool
-
+    
     var hasEnded: Bool {
         endDate != nil
     }
-
+    
     enum Kind: Hashable {
         case disclosed
         case undisclosed
@@ -42,7 +42,24 @@ struct Poll: Hashable {
     var hasMaxSelections: Bool {
         options.filter(\.isSelected).count == maxSelections
     }
-
+    
+    func answerIDsAfterSelecting(optionID: String) -> [String]? {
+        guard options.contains(where: { $0.id == optionID }) else { return nil }
+        
+        let selectedOptionIDs = options.filter(\.isSelected).map(\.id)
+        if selectedOptionIDs.contains(optionID) {
+            guard maxSelections > 1, selectedOptionIDs.count > 1 else { return nil }
+            return selectedOptionIDs.filter { $0 != optionID }
+        }
+        
+        guard maxSelections > 1 else {
+            return [optionID]
+        }
+        
+        guard selectedOptionIDs.count < maxSelections else { return nil }
+        return selectedOptionIDs + [optionID]
+    }
+    
     struct Option: Hashable {
         let id: String
         let text: String

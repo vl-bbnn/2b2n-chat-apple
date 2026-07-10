@@ -230,17 +230,26 @@ private struct LoadableImageContent<TransformerView: View, PlaceholderView: View
     
     // MARK: - ImageDataProvider
     
-    var cacheKey: String {
+    nonisolated var cacheKey: String {
         mediaSource.url.absoluteString
     }
     
-    func data(handler: @escaping (Result<Data, Error>) -> Void) {
-        guard case let .gifData(data) = contentLoader.content else {
-            fatalError("Shouldn't reach this point without any gif data")
+    nonisolated func data(handler: @escaping @Sendable (Result<Data, Error>) -> Void) {
+        // Kingfisher isn't annotated and doesn't guarantee the provider is invoked on the main
+        // thread so hop onto the main actor.
+        Task { @MainActor in
+            guard case let .gifData(data) = contentLoader.content else {
+                handler(.failure(LoadableImageError.missingGIFData))
+                return
+            }
+            
+            handler(.success(data))
         }
-        
-        handler(.success(data))
     }
+}
+
+private enum LoadableImageError: Error {
+    case missingGIFData
 }
 
 private class ContentLoader: ObservableObject {
@@ -279,7 +288,6 @@ private class ContentLoader: ObservableObject {
         self.mediaProvider = mediaProvider
     }
     
-    @MainActor
     func load() async {
         if isGIF {
             if case let .success(data) = await mediaProvider?.loadImageDataFromSource(mediaSource) {
@@ -358,7 +366,7 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
                           mediaProvider: loadingMediaProvider,
                           placeholder: placeholder)
                 .layout(title: "Loading (avatar)")
-
+            
             LoadableImage(url: "mxc://wherever/345",
                           mediaType: .timelineItem(uniqueID: .init("id")),
                           blurhash: "KbLM^j]q$jT|EfR-3rtjXk",
@@ -388,7 +396,7 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
     static func placeholder() -> some View {
         Color.compound._bgBubbleIncoming
     }
-
+    
     static func transformer(_ view: AnyView) -> some View {
         view.overlay {
             Image(systemSymbol: .playCircleFill)
@@ -398,7 +406,7 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
     }
     
     static func makeMediaProvider(isLoading: Bool = false) -> MediaProviderProtocol {
-        let mediaProvider = MediaProviderMock(configuration: .init())
+        let mediaProvider = MediaProviderMock(.init())
         
         if isLoading {
             mediaProvider.imageFromSourceSizeClosure = { _, _ in nil }

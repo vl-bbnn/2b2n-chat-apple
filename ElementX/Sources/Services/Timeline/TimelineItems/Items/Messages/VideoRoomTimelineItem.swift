@@ -9,7 +9,7 @@
 import UIKit
 import UniformTypeIdentifiers
 
-struct VideoRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
+nonisolated struct VideoRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
     let id: TimelineItemIdentifier
     let timestamp: Date
     let isOutgoing: Bool
@@ -18,7 +18,7 @@ struct VideoRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
     var shouldBoost = false
     
     let sender: TimelineItemSender
-
+    
     let content: VideoRoomTimelineItemContent
     
     var properties = RoomTimelineItemProperties()

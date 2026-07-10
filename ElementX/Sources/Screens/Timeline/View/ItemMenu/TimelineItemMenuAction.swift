@@ -10,7 +10,6 @@ import OrderedCollections
 import SFSafeSymbols
 import SwiftUI
 
-@MainActor
 struct TimelineItemMenuActions {
     let reactions: [TimelineItemMenuReaction]
     let actions: [TimelineItemMenuAction]
@@ -65,7 +64,7 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
     case removeCaption
     case editPoll
     case copyPermalink
-    case redact
+    case redact(isMedia: Bool)
     case reply(isThread: Bool)
     case replyInThread
     case forward(itemID: TimelineItemIdentifier)
@@ -77,8 +76,7 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
     case pin
     case unpin
     case viewInRoomTimeline
-    case share
-    case save
+    case downloadMedia
     
     var id: Self {
         self
@@ -135,7 +133,7 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
     
     var canAppearInMediaDetails: Bool {
         switch self {
-        case .viewInRoomTimeline, .share, .save, .redact, .forward:
+        case .viewInRoomTimeline, .downloadMedia, .redact, .forward:
             true
         default:
             false
@@ -154,6 +152,7 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
             Label(L10n.actionCopyCaption, icon: \.copy)
         case .edit:
             Label(L10n.actionEdit, icon: \.edit)
+                .accessibilityIdentifier(A11yIdentifiers.roomScreen.timelineItemActionMenuAction.edit)
         case .addCaption:
             Label(L10n.actionAddCaption, icon: \.edit)
         case .editCaption:
@@ -170,8 +169,8 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
             Label(L10n.actionReplyInThread, icon: \.threads)
         case .forward:
             Label(L10n.actionForward, icon: \.forward)
-        case .redact:
-            Label(L10n.actionRemoveMessage, icon: \.delete)
+        case .redact(let isMedia):
+            Label(isMedia ? L10n.actionDeleteFile : L10n.actionRemoveMessage, icon: \.delete)
         case .viewSource:
             Label(L10n.actionViewSource, icon: \.code)
         case .report:
@@ -189,10 +188,8 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
             Label(L10n.actionUnpin, icon: \.unpin)
         case .viewInRoomTimeline:
             Label(L10n.actionViewInTimeline, icon: \.visibilityOn)
-        case .share:
-            Label(L10n.actionShare, icon: \.shareIos)
-        case .save:
-            Label(L10n.actionSave, icon: \.downloadIos)
+        case .downloadMedia:
+            Label(L10n.actionDownload, icon: \.downloadIos)
         }
     }
 }

@@ -27,7 +27,7 @@ class TimelineMediaPreviewController: QLPreviewController {
     private var navigationBar: UINavigationBar? {
         view.subviews.first?.subviews.first { $0 is UINavigationBar } as? UINavigationBar
     }
-
+    
     private var bottomBarItemsContainer: UIView? {
         if #available(iOS 26, *) {
             view.subviews.first?.subviews.last?.subviews.first
@@ -35,11 +35,11 @@ class TimelineMediaPreviewController: QLPreviewController {
             view.subviews.first?.subviews.last { $0 is UIToolbar }
         }
     }
-
+    
     private var pageScrollView: UIScrollView? {
         view.firstScrollView()
     }
-
+    
     private var captionView: UIView {
         captionHostingController.view
     }
@@ -153,7 +153,10 @@ class TimelineMediaPreviewController: QLPreviewController {
         // Ridiculous hack to undo the controller's attempt to replace our info button with the list button.
         if barButtonTimer == nil {
             barButtonTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                self?.updateBarButtons()
+                // The timer is scheduled on the main run loop so it always fires on the main actor.
+                MainActor.assumeIsolated {
+                    self?.updateBarButtons()
+                }
             }
         }
     }
@@ -227,7 +230,7 @@ class TimelineMediaPreviewController: QLPreviewController {
     private func presentMediaDetails(for mediaItem: TimelineMediaPreviewItem.Media) {
         let safeArea = view.safeAreaInsets.bottom
         let sheetHeightBinding = Binding { safeArea } set: { [weak self] newValue, _ in
-            self?.detailsHostingController?.sheetPresentationController?.detents = [.height(newValue + safeArea)]
+            self?.detailsHostingController?.sheetPresentationController?.detents = [.height(newValue)]
         }
         
         let hostingController = UIHostingController(rootView: TimelineMediaPreviewDetailsView(item: mediaItem,
@@ -316,7 +319,7 @@ private struct CaptionView: View {
     private var currentItem: TimelineMediaPreviewItem {
         context.viewState.currentItem
     }
-
+    
     var body: some View {
         if case let .media(mediaItem) = currentItem, mediaItem.hasCaption {
             CaptionScrollView(mediaItem: mediaItem)
@@ -361,7 +364,7 @@ private struct CaptionScrollView: View {
                 .ignoresSafeArea()
         }
     }
-
+    
     @ViewBuilder
     private var captionContent: some View {
         if let formattedCaption = mediaItem.formattedCaption {

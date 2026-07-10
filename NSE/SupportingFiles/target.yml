@@ -37,6 +37,8 @@ targets:
       - package: Kingfisher
       - package: Collections
       - package: Compound
+      - package: BuildExtensions
+        product: Macros
       - package: DeviceKit
       - package: LRUCache
       - package: Version
@@ -59,7 +61,6 @@ targets:
     entitlements:
       path: NSE.entitlements
       properties:
-        com.apple.developer.usernotifications.filtering: true
         com.apple.security.application-groups:
         - $(APP_GROUP_IDENTIFIER)
         keychain-access-groups:
@@ -72,11 +73,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: ${BASE_BUNDLE_IDENTIFIER}.nse
         MARKETING_VERSION: $(MARKETING_VERSION)
         CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
-        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+        DEVELOPMENT_TEAM: $(OVERLAY_DEVELOPMENT_TEAM)
+        CODE_SIGN_STYLE: Automatic
         SWIFT_OBJC_INTERFACE_HEADER_NAME: GeneratedInterface-Swift.h
+        SWIFT_VERSION: 6.2
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
         OTHER_SWIFT_FLAGS:
         - "-DIS_NSE"
-        
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
@@ -87,7 +90,6 @@ targets:
     - path: ../../Secrets/Secrets.swift
     - path: ../../ElementX/Sources/Application/Settings
     - path: ../../ElementX/Sources/Application/TargetConfiguration.swift
-    - path: ../../ElementX/Sources/Generated/Assets.swift
     - path: ../../ElementX/Sources/Generated/Strings.swift
     - path: ../../ElementX/Sources/Other/Avatars.swift
     - path: ../../ElementX/Sources/Other/CurrentValuePublisher.swift
@@ -111,13 +113,16 @@ targets:
     - path: ../../ElementX/Sources/Other/InfoPlistReader.swift
     - path: ../../ElementX/Sources/Other/Logging
     - path: ../../ElementX/Sources/Other/MatrixEntityRegex.swift
-    - path: ../../ElementX/Sources/Other/NetworkMonitor
+    - path: ../../ElementX/Sources/Other/NetworkMonitor/NetworkMonitorProtocol.swift
     - path: ../../ElementX/Sources/Other/Pills/PillUtilities.swift
     - path: ../../ElementX/Sources/Other/Pills/PlainMentionBuilder.swift
     - path: ../../ElementX/Sources/Other/SDKListener.swift
     - path: ../../ElementX/Sources/Other/SwiftUI/Views/PlaceholderAvatarImage.swift
     - path: ../../ElementX/Sources/Other/TestablePreview/TestablePreview.swift
     - path: ../../ElementX/Sources/Other/UserAgentBuilder.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationTone.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationToneManager.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationToneManagerProtocol.swift
     - path: ../../ElementX/Sources/Services/ElementCall/ElementCallServiceConstants.swift
     - path: ../../ElementX/Sources/Services/Keychain/KeychainController.swift
     - path: ../../ElementX/Sources/Services/Keychain/KeychainControllerProtocol.swift

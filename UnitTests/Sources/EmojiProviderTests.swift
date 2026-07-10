@@ -19,12 +19,12 @@ struct EmojiProviderTests {
         let emojiLoaderMock = EmojiLoaderMock()
         emojiLoaderMock.categories = [category]
         
-        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: AppSettings())
+        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: .volatile())
         
         let categories = await emojiProvider.categories()
         #expect(emojiLoaderMock.categories == categories)
     }
-
+    
     @Test @MainActor
     func emojisLoadedAndSearchStringEmptyAllCategoriesReturned() async {
         let item = EmojiItem(label: "test", unicode: "test", keywords: ["1", "2"], shortcodes: ["1", "2"])
@@ -33,12 +33,12 @@ struct EmojiProviderTests {
         let emojiLoaderMock = EmojiLoaderMock()
         emojiLoaderMock.categories = [category]
         
-        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: AppSettings())
+        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: .volatile())
         
         let categories = await emojiProvider.categories(searchString: "")
         #expect(emojiLoaderMock.categories == categories)
     }
-
+    
     @Test @MainActor
     func emojisLoadedSecondTimeCachedValuesAreUsed() async {
         let item = EmojiItem(label: "test", unicode: "test", keywords: ["1", "2"], shortcodes: ["1", "2"])
@@ -51,7 +51,7 @@ struct EmojiProviderTests {
         let emojiLoaderMock = EmojiLoaderMock()
         emojiLoaderMock.categories = categoriesForFirstLoad
         
-        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: AppSettings())
+        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: .volatile())
         
         _ = await emojiProvider.categories()
         emojiLoaderMock.categories = categoriesForSecondLoad
@@ -82,7 +82,7 @@ struct EmojiProviderTests {
         let emojiLoaderMock = EmojiLoaderMock()
         emojiLoaderMock.categories = categories
         
-        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: AppSettings())
+        let emojiProvider = EmojiProvider(loader: emojiLoaderMock, appSettings: .volatile())
         
         _ = await emojiProvider.categories()
         let result = await emojiProvider.categories(searchString: searchString)

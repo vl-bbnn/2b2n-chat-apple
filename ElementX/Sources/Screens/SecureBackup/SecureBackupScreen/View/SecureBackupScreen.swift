@@ -116,6 +116,7 @@ struct SecureBackupScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct SecureBackupScreen_Previews: PreviewProvider, TestablePreview {
     static let bothSetupViewModel = viewModel(keyBackupState: .enabled, recoveryState: .enabled)
     static let onlyKeyBackupSetUpViewModel = viewModel(keyBackupState: .enabled, recoveryState: .disabled)
@@ -151,8 +152,8 @@ struct SecureBackupScreen_Previews: PreviewProvider, TestablePreview {
     static func viewModel(keyBackupState: SecureBackupKeyBackupState,
                           recoveryState: SecureBackupRecoveryState) -> SecureBackupScreenViewModelType {
         let backupController = SecureBackupControllerMock()
-        backupController.underlyingKeyBackupState = CurrentValueSubject<SecureBackupKeyBackupState, Never>(keyBackupState).asCurrentValuePublisher()
-        backupController.underlyingRecoveryState = CurrentValueSubject<SecureBackupRecoveryState, Never>(recoveryState).asCurrentValuePublisher()
+        backupController.keyBackupState = CurrentValueSubject<SecureBackupKeyBackupState, Never>(keyBackupState).asCurrentValuePublisher()
+        backupController.recoveryState = CurrentValueSubject<SecureBackupRecoveryState, Never>(recoveryState).asCurrentValuePublisher()
         
         return SecureBackupScreenViewModel(secureBackupController: backupController,
                                            userIndicatorController: UserIndicatorControllerMock(),

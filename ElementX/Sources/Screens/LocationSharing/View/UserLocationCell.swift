@@ -9,7 +9,7 @@ import Compound
 import SwiftUI
 
 struct UserLocationCell: View {
-    let profile: UserProfileProxy
+    let profile: UserProfile
     let isOwnUser: Bool
     let kind: Kind
     var mediaProvider: MediaProviderProtocol?
@@ -23,7 +23,7 @@ struct UserLocationCell: View {
     }
     
     private var name: String {
-        isOwnUser ? L10n.commonYou : profile.displayName ?? profile.userID
+        isOwnUser ? L10n.commonYou : profile.displayName ?? profile.id
     }
     
     var body: some View {
@@ -90,19 +90,19 @@ struct UserLocationCell_Previews: PreviewProvider, TestablePreview {
         UserLocationCell(profile: .mockDan,
                          isOwnUser: true,
                          kind: .static(isUserLocation: true, timestamp: .mock),
-                         mediaProvider: MediaProviderMock(configuration: .init()))
+                         mediaProvider: MediaProviderMock(.init()))
             .previewDisplayName("Stiatc user locaton")
             .previewLayout(.sizeThatFits)
         UserLocationCell(profile: .mockDan,
                          isOwnUser: false,
                          kind: .static(isUserLocation: false, timestamp: .mock),
-                         mediaProvider: MediaProviderMock(configuration: .init()))
+                         mediaProvider: MediaProviderMock(.init()))
             .previewDisplayName("Static pin location")
             .previewLayout(.sizeThatFits)
         UserLocationCell(profile: .mockDan,
                          isOwnUser: true,
                          kind: .live,
-                         mediaProvider: MediaProviderMock(configuration: .init()))
+                         mediaProvider: MediaProviderMock(.init()))
             .previewDisplayName("Live location")
             .previewLayout(.sizeThatFits)
     }

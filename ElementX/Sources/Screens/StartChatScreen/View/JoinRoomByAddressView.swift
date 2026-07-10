@@ -31,7 +31,7 @@ struct JoinRoomByAddressView: View {
         }
     }
     
-    private var textFieldState: ElementTextFieldStyle.State {
+    private var textFieldState: CompoundTextFieldStyle.State {
         switch context.viewState.joinByAddressState {
         case .addressFound:
             .success
@@ -47,12 +47,13 @@ struct JoinRoomByAddressView: View {
             VStack(spacing: 24) {
                 TextField(L10n.screenStartChatJoinRoomByAddressPlaceholder,
                           text: $context.roomAddress)
-                    .textFieldStyle(.element(labelText: L10n.screenStartChatJoinRoomByAddressAction,
-                                             footerText: footerText,
-                                             state: textFieldState))
+                    .textFieldStyle(.compound(labelText: L10n.screenStartChatJoinRoomByAddressAction,
+                                              footerText: footerText,
+                                              state: textFieldState))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .textContentType(.URL)
+                    .accessibilityLabel(L10n.screenStartChatJoinRoomByAddressPlaceholder)
                     .focused($textFieldFocus)
                     .onChange(of: context.roomAddress) { _, newValue in
                         context.roomAddress = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -82,15 +83,12 @@ struct JoinRoomByAddressView_Previews: PreviewProvider, TestablePreview {
         let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@userid:example.com"))))
         let userDiscoveryService = UserDiscoveryServiceMock()
         userDiscoveryService.searchProfilesWithReturnValue = .success([.mockAlice])
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
         return StartChatScreenViewModel(userSession: userSession,
-                                        analytics: analytics,
+                                        analytics: AnalyticsServiceMock(.init()),
                                         userIndicatorController: UserIndicatorControllerMock(),
                                         userDiscoveryService: userDiscoveryService,
-                                        appSettings: appSettings)
+                                        appSettings: .volatile())
     }()
     
     static var previews: some View {

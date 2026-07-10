@@ -25,7 +25,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
     var isEnabled: Bool {
         rageshakeURL != .disabled
     }
-
+    
     var lastCrashEventID: String?
     
     init(rageshakeURLPublisher: CurrentValuePublisher<RageshakeConfiguration, Never>,
@@ -45,11 +45,11 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             .weakAssign(to: \.rageshakeURL, on: self)
             .store(in: &cancellables)
     }
-
+    
     // MARK: - BugReportServiceProtocol
     
     var crashedLastRun: Bool {
-        SentrySDK.crashedLastRun
+        SentrySDK.lastRunStatus == .didCrash
     }
     
     // swiftlint:disable:next cyclomatic_complexity
@@ -110,7 +110,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         for url in bugReport.files {
             params.append(MultipartFormData(key: "file", type: .file(url: url)))
         }
-
+        
         let boundary = "Boundary-\(UUID().uuidString)"
         var body = Data()
         for param in params {
@@ -122,13 +122,13 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             }
         }
         body.appendString(string: "--\(boundary)--\r\n")
-
+        
         var request = URLRequest(url: rageshakeURL)
         request.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
+        
         request.httpMethod = "POST"
         request.httpBody = body as Data
-
+        
         progressSubject
             .receive(on: DispatchQueue.main)
             .weakAssign(to: \.value, on: progressListener)
@@ -164,9 +164,9 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             return .failure(.uploadFailure(error))
         }
     }
-
+    
     // MARK: - Private
-
+    
     private var defaultParams: [MultipartFormData] {
         let (localTime, utcTime) = localAndUTCTime(for: Date())
         let version = "\(InfoPlistReader.main.bundleShortVersionString) (\(InfoPlistReader.main.bundleVersion))"
@@ -185,7 +185,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             MultipartFormData(key: "base_bundle_identifier", type: .text(value: InfoPlistReader.main.baseBundleIdentifier))
         ]
     }
-
+    
     private func localAndUTCTime(for date: Date) -> (String, String) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -194,7 +194,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         let utcTime = dateFormatter.string(from: date)
         return (localTime, utcTime)
     }
-
+    
     private var os: String {
         if ProcessInfo.processInfo.isiOSAppOnMac {
             // The other APIs report macOS's equivalent iOS version, so lets use the right one to get the macOS version.
@@ -203,7 +203,8 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
         }
     }
-
+    
+    @concurrent
     private func zipFiles(_ logFiles: [URL]) async -> Logs {
         MXLog.info("zipFiles")
         
@@ -211,7 +212,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         
         for url in logFiles {
             do {
-                try attachFile(at: url, to: &compressedLogs)
+                try await attachFile(at: url, to: &compressedLogs)
             } catch {
                 MXLog.error("Failed to compress log at \(url)")
                 // Continue so that other logs can still be sent.
@@ -219,12 +220,13 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         }
         
         MXLog.info("zipFiles: originalSize: \(compressedLogs.originalSize), zippedSize: \(compressedLogs.zippedSize)")
-
+        
         return compressedLogs
     }
     
     /// Zips a file creating chunks based on 10MB inputs.
-    private func attachFile(at url: URL, to zippedFiles: inout Logs) throws {
+    @concurrent
+    private func attachFile(at url: URL, to zippedFiles: inout Logs) async throws {
         let fileHandle = try FileHandle(forReadingFrom: url)
         
         while let data = try fileHandle.readToEnd() {
@@ -235,7 +237,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
                 try? FileManager.default.removeItem(at: zippedURL)
                 
                 try zippedData.write(to: zippedURL)
-                zippedFiles.appendFile(at: zippedURL, zippedSize: zippedData.count, originalSize: data.count)
+                await zippedFiles.appendFile(at: zippedURL, zippedSize: zippedData.count, originalSize: data.count)
             }
         }
     }
@@ -263,7 +265,7 @@ private extension Data {
             append(data)
         }
     }
-
+    
     mutating func appendParam(_ param: MultipartFormData, boundary: String) throws {
         appendString(string: "--\(boundary)\r\n")
         appendString(string: "Content-Disposition:form-data; name=\"\(param.key)\"")
@@ -289,12 +291,14 @@ private enum MultipartFormDataType {
     case file(url: URL)
 }
 
-extension BugReportService: URLSessionTaskDelegate {
+nonisolated extension BugReportService: URLSessionTaskDelegate {
+    /// URLSession calls its delegate on a background queue, hop to the main actor
+    /// where the service lives.
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        task.progress.publisher(for: \.fractionCompleted)
-            .sink { [weak self] value in
+        Task { @MainActor [weak self] in
+            for await value in task.progress.publisher(for: \.fractionCompleted).values {
                 self?.progressSubject.send(value)
             }
-            .store(in: &cancellables)
+        }
     }
 }

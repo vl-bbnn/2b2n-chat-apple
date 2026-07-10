@@ -15,7 +15,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     private let roomListService: RoomListServiceProtocol
     private let room: RoomProtocol
     private let appSettings: AppSettings
-    private let analyticsService: AnalyticsService
+    private let analyticsService: AnalyticsServiceProtocol
     private let eventStringBuilder: RoomEventStringBuilder
     
     // periphery:ignore - required for instance retention in the rust codebase
@@ -55,7 +55,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     var infoPublisher: CurrentValuePublisher<RoomInfoProxyProtocol, Never> {
         infoSubject.asCurrentValuePublisher()
     }
-
+    
     private let membersSubject = CurrentValueSubject<[RoomMemberProxyProtocol], Never>([])
     var membersPublisher: CurrentValuePublisher<[RoomMemberProxyProtocol], Never> {
         membersSubject.asCurrentValuePublisher()
@@ -79,7 +79,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     init(roomListService: RoomListServiceProtocol,
          room: RoomProtocol,
          appSettings: AppSettings,
-         analyticsService: AnalyticsService,
+         analyticsService: AnalyticsServiceProtocol,
          eventStringBuilder: RoomEventStringBuilder) async throws {
         self.roomListService = roomListService
         self.room = room
@@ -119,7 +119,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         }
         
         subscribedForUpdates = true
-
+        
         do {
             try await roomListService.subscribeToRooms(roomIds: [id])
         } catch {
@@ -146,7 +146,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return
         }
         
-        roomInfoObservationToken = room.subscribeToRoomInfoUpdates(listener: SDKListener { [weak self] roomInfo in
+        roomInfoObservationToken = room.subscribeToRoomInfoUpdates(listener: SDKListener.onMainActor { [weak self] roomInfo in
             MXLog.info("Received room info update")
             self?.infoSubject.send(RoomInfoProxy(roomInfo: roomInfo))
         })
@@ -353,9 +353,9 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             MXLog.error("Failed updating members using sync API: \(error)")
         }
     }
-
+    
     func getMember(userID: String) async -> Result<RoomMemberProxyProtocol, RoomProxyError> {
-        if let member = membersPublisher.value.filter({ $0.userID == userID }).first {
+        if let member = membersPublisher.value.first(where: { $0.userID == userID }) {
             return .success(member)
         }
         
@@ -396,7 +396,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return .failure(.sdkError(error))
         }
     }
-
+    
     func setTopic(_ topic: String) async -> Result<Void, RoomProxyError> {
         do {
             return try await .success(room.setTopic(topic: topic))
@@ -420,7 +420,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             MXLog.error("Failed uploading avatar, invalid media: \(media)")
             return .failure(.invalidMedia)
         }
-
+        
         do {
             let data = try Data(contentsOf: imageURL)
             return try await .success(room.uploadAvatar(mimeType: mimeType, data: data, mediaInfo: nil))
@@ -790,17 +790,17 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return .failure(.sdkError(error))
         }
     }
-
+    
     // MARK: - Private
     
     private func subscribeToTypingNotifications() {
-        typingNotificationObservationToken = room.subscribeToTypingNotifications(listener: SDKListener { [weak self] typingUserIDs in
+        typingNotificationObservationToken = room.subscribeToTypingNotifications(listener: SDKListener.onMainActor { [weak self] typingUserIDs in
             guard let self else { return }
             
             MXLog.info("Received typing notification update, typingUsers: \(typingUserIDs)")
             
             let typingMembers = typingUserIDs.compactMap { userID in
-                if let member = self.membersPublisher.value.filter({ $0.userID == userID }).first {
+                if let member = self.membersPublisher.value.first(where: { $0.userID == userID }) {
                     return member.displayName ?? member.userID
                 } else {
                     return userID
@@ -813,7 +813,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     private func subscribeToIdentityStatusChanges() async {
         do {
-            identityStatusChangesObservationToken = try await room.subscribeToIdentityStatusChanges(listener: SDKListener { [weak self] changes in
+            identityStatusChangesObservationToken = try await room.subscribeToIdentityStatusChanges(listener: SDKListener.onMainActor { [weak self] changes in
                 guard let self else { return }
                 
                 MXLog.info("Received identity status changes: \(changes)")
@@ -827,7 +827,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     private func subscribeToKnockRequests() async {
         do {
-            knockRequestsChangesObservationToken = try await room.subscribeToKnockRequests(listener: SDKListener { [weak self] requests in
+            knockRequestsChangesObservationToken = try await room.subscribeToKnockRequests(listener: SDKListener.onMainActor { [weak self] requests in
                 guard let self else { return }
                 
                 MXLog.info("Received requests to join update, requests id: \(requests.map(\.eventId))")

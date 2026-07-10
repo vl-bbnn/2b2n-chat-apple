@@ -38,8 +38,8 @@ struct CreateRoomScreenViewState: BindableState {
     var avatarMediaInfo: MediaInfo? {
         didSet {
             switch avatarMediaInfo {
-            case .image(_, let thumbnailURL, _):
-                avatarImage = UIImage(contentsOfFile: thumbnailURL.path(percentEncoded: false))
+            case .image(let imageURL, let thumbnailURL, _):
+                avatarImage = UIImage(contentsOfFile: (thumbnailURL ?? imageURL).path(percentEncoded: false))
             default:
                 avatarImage = nil
             }
@@ -51,7 +51,7 @@ struct CreateRoomScreenViewState: BindableState {
     var canCreateRoom: Bool {
         !roomName.isEmpty && aliasErrors.isEmpty
     }
-
+    
     var aliasErrors: Set<CreateRoomScreenAliasErrorState> = []
     var aliasErrorDescription: String? {
         if aliasErrors.contains(.alreadyExists) {
@@ -62,7 +62,7 @@ struct CreateRoomScreenViewState: BindableState {
             nil
         }
     }
-        
+    
     var availableAccessTypes: [CreateRoomScreenAccessType] {
         var availableAccessTypes: [CreateRoomScreenAccessType] = []
         if isSpace {

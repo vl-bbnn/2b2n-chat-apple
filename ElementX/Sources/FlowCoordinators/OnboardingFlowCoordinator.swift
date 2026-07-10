@@ -19,7 +19,7 @@ enum OnboardingFlowCoordinatorAction {
 class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     private let userSession: UserSessionProtocol
     private let appLockService: AppLockServiceProtocol
-    private let analyticsService: AnalyticsService
+    private let analyticsService: AnalyticsServiceProtocol
     private let appMediator: AppMediatorProtocol
     private let appSettings: AppSettings
     private let appHooks: AppHooks
@@ -113,7 +113,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
         }
         
         actionsSubject.send(.requestPresentation(animated: !isNewLogin))
-
+        
         stateMachine.tryEvent(.next)
     }
     
@@ -203,7 +203,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (.notificationPermissions, _, _, _, _):
                 return .finished
-            
+                
             default:
                 return nil
             }
@@ -302,7 +302,8 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
                                                                             userIndicatorController: userIndicatorController,
                                                                             isModallyPresented: false)
         
-        let coordinator = SecureBackupRecoveryKeyScreenCoordinator(parameters: parameters)
+        let coordinator = appHooks.recoveryKeyScreenHook.makeCoordinator(parameters: parameters,
+                                                                         homeserver: userSession.clientProxy.homeserver)
         
         coordinator.actions
             .sink { action in
@@ -381,7 +382,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
         appLockFlowCoordinator = coordinator
         coordinator.start()
     }
-
+    
     private func presentAnalyticsPromptScreen() {
         let coordinator = AnalyticsPromptScreenCoordinator(analytics: analyticsService, termsURL: appSettings.analyticsTermsURL)
         

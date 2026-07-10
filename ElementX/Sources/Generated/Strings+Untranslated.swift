@@ -9,15 +9,17 @@ import Foundation
 
 // swiftlint:disable explicit_type_interface function_parameter_count identifier_name line_length
 // swiftlint:disable nesting type_body_length type_name vertical_whitespace_opening_braces
-internal enum UntranslatedL10n {
-  /// You currently don’t have any chats with these contacts. Confirm inviting them to this room before continuing.
-  internal static var cryptoHistorySharingConfirmInviteDialogContent: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_invite_dialog_content") }
-  /// Invite new contacts to this room?
-  internal static var cryptoHistorySharingConfirmInviteDialogTitle: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_invite_dialog_title") }
-  /// You currently don’t have any chats with this person. Confirm inviting them before continuing.
-  internal static var cryptoHistorySharingConfirmStartChatDialogContent: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_content") }
-  /// Start a chat with this new contact?
-  internal static var cryptoHistorySharingConfirmStartChatDialogTitle: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_title") }
+internal nonisolated enum UntranslatedL10n {
+  /// Search
+  internal static var screenHomeTabSearch: String { return UntranslatedL10n.tr("Untranslated", "screen_home_tab_search") }
+  /// Search for rooms
+  internal static var screenSearchEmptyStateMessage: String { return UntranslatedL10n.tr("Untranslated", "screen_search_empty_state_message") }
+  /// Start searching...
+  internal static var screenSearchEmptyStateTitle: String { return UntranslatedL10n.tr("Untranslated", "screen_search_empty_state_title") }
+  /// There are no results for “%1$@.” Try a new search term.
+  internal static func screenSearchNoResultsMessage(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_search_no_results_message", String(describing: p1))
+  }
   /// Clear all data currently stored on this device?
   /// Sign in again to access your account data and messages.
   internal static var softLogoutClearDataDialogContent: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_clear_data_dialog_content") }
@@ -51,7 +53,7 @@ internal enum UntranslatedL10n {
 
 // MARK: - Implementation Details
 
-extension UntranslatedL10n {
+nonisolated extension UntranslatedL10n {
   static func tr(_ table: String, _ key: String, _ args: CVarArg...) -> String {
     // No need to check languages, we always default to en for untranslated strings
     guard let bundle = Bundle.lprojBundle(for: "en") else { return key }

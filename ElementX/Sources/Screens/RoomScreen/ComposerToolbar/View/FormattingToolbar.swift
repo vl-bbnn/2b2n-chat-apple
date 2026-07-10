@@ -14,7 +14,7 @@ struct FormattingToolbar: View {
     var formatItems: [FormatItem]
     /// The action when an item is selected
     var formatAction: (FormatType) -> Void
-
+    
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 5) {
@@ -38,7 +38,6 @@ struct FormattingToolbar: View {
     }
 }
 
-@MainActor
 private extension FormatItem {
     var foregroundColor: Color {
         switch state {
@@ -50,7 +49,7 @@ private extension FormatItem {
             return .compound.iconDisabled
         }
     }
-
+    
     var backgroundColor: Color {
         switch state {
         case .reversed:

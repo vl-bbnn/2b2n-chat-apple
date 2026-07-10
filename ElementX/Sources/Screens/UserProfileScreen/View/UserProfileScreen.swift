@@ -45,7 +45,7 @@ struct UserProfileScreen: View {
                 otherUserFooter
             }
         } else {
-            AvatarHeaderView(user: UserProfileProxy(userID: context.viewState.userID),
+            AvatarHeaderView(user: UserProfile(userID: context.viewState.userID),
                              isVerified: context.viewState.showVerifiedBadge,
                              avatarSize: .user(on: .memberDetails),
                              mediaProvider: context.mediaProvider) { }
@@ -91,7 +91,7 @@ struct UserProfileScreen: View {
         }
         .padding(.top, 32)
     }
-        
+    
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if context.viewState.isPresentedModally {
@@ -106,6 +106,7 @@ struct UserProfileScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct UserProfileScreen_Previews: PreviewProvider, TestablePreview {
     static let verifiedUserViewModel = makeViewModel(userID: RoomMemberProxyMock.mockDan.userID)
     static let otherUserViewModel = makeViewModel(userID: RoomMemberProxyMock.mockAlice.userID)
@@ -131,26 +132,23 @@ struct UserProfileScreen_Previews: PreviewProvider, TestablePreview {
         clientProxyMock.userIdentityForFallBackToServerClosure = { userID, _ in
             let identity = switch userID {
             case RoomMemberProxyMock.mockDan.userID:
-                UserIdentityProxyMock(configuration: .init(verificationState: .verified))
+                UserIdentityProxyMock(.init(verificationState: .verified))
             default:
-                UserIdentityProxyMock(configuration: .init())
+                UserIdentityProxyMock(.init())
             }
             
             return .success(identity)
         }
-
+        
         if userID != RoomMemberProxyMock.mockMe.userID {
             clientProxyMock.directRoomForUserIDReturnValue = .success("roomID")
         }
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
         return UserProfileScreenViewModel(userID: userID,
                                           isPresentedModally: false,
                                           userSession: UserSessionMock(.init(clientProxy: clientProxyMock)),
-                                          userIndicatorController: UserIndicatorControllerMock.default,
-                                          analytics: analytics,
-                                          appSettings: appSettings)
+                                          userIndicatorController: UserIndicatorControllerMock(),
+                                          analytics: AnalyticsServiceMock(.init()),
+                                          appSettings: .volatile())
     }
 }

@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-enum Tracing {
+nonisolated enum Tracing {
     /// The directory that stores all of the log files.
     static var logsDirectory: URL {
         if ProcessInfo.isRunningIntegrationTests {
@@ -22,7 +22,7 @@ enum Tracing {
     /// Set this to temporarily override the directory from which logs will be collected.
     /// This basically only affects ``logFiles``, and doesn't inform the SDK to write
     /// the logs to a different directory, which should be done before setting this.
-    static var logsDirectoryOverride: URL?
+    nonisolated(unsafe) static var logsDirectoryOverride: URL?
     static var legacyLogsDirectory: URL {
         .appGroupContainerDirectory
     }

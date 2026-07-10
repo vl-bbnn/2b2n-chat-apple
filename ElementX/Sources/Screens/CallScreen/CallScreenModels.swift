@@ -20,8 +20,6 @@ struct CallScreenViewState: BindableState {
     let script: String?
     var url: URL?
     
-    let certificateValidator: CertificateValidatorHookProtocol
-    
     var bindings = Bindings()
 }
 
@@ -59,6 +57,9 @@ enum CallScreenJavaScriptMessageName: String, CaseIterable {
     case onOutputDeviceSelect
     /// Used to handle the webview back button
     case onBackButtonPressed
+    /// Used to handle PiP orientation changes
+    case onPipMediaOrientationUpdate
+    
     /// Forward logs to the native side for debugging purposes.
     case forwardLogs
     
@@ -96,6 +97,12 @@ enum CallScreenJavaScriptMessageName: String, CaseIterable {
             """
             window.controls.\(rawValue) = () => {
                 window.webkit.messageHandlers.\(rawValue).postMessage("");
+            }
+            """
+        case .onPipMediaOrientationUpdate:
+            """
+            window.controls.\(rawValue) = (orientation) => {
+                window.webkit.messageHandlers.\(rawValue).postMessage(orientation);
             }
             """
         case .forwardLogs:

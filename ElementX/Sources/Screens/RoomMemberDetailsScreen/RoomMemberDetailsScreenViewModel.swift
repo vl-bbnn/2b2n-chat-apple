@@ -15,7 +15,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
     private let roomProxy: JoinedRoomProxyProtocol
     private let userSession: UserSessionProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     private let appSettings: AppSettings
     
     private var actionsSubject: PassthroughSubject<RoomMemberDetailsScreenViewModelAction, Never> = .init()
@@ -30,7 +30,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
          roomProxy: JoinedRoomProxyProtocol,
          userSession: UserSessionProtocol,
          userIndicatorController: UserIndicatorControllerProtocol,
-         analytics: AnalyticsService,
+         analytics: AnalyticsServiceProtocol,
          appSettings: AppSettings) {
         self.roomProxy = roomProxy
         self.userSession = userSession
@@ -92,7 +92,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
             Task { await userSession.clientProxy.withdrawUserIdentityVerification(state.userID) }
         }
     }
-
+    
     // MARK: - Private
     
     private func loadMember() async {
@@ -141,8 +141,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
             state.bindings.alertInfo = .init(id: .unknown)
         }
     }
-
-    @MainActor
+    
     private func unignoreUser() async {
         guard let roomMemberProxy else {
             fatalError()
@@ -162,9 +161,9 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
             state.bindings.alertInfo = .init(id: .unknown)
         }
     }
-
+    
     private func updateMembers() {
-        Task.detached {
+        Task {
             await self.roomProxy.updateMembers()
         }
     }
@@ -177,7 +176,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
         let loadingIndicatorIdentifier = "roomMemberAvatarLoadingIndicator"
         userIndicatorController.submitIndicator(UserIndicator(id: loadingIndicatorIdentifier, type: .modal, title: L10n.commonLoading, persistent: true))
         defer { userIndicatorController.retractIndicatorWithId(loadingIndicatorIdentifier) }
-            
+        
         // We don't actually know the mime type here, assume it's an image.
         if let mediaSource = try? MediaSourceProxy(url: url, mimeType: "image/jpeg"),
            case let .success(file) = await userSession.mediaProvider.loadFileFromSource(mediaSource) {
@@ -203,7 +202,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
             } else if roomProxy.details.historySharingState != RoomHistorySharingState.hidden {
                 Task {
                     let identity = await self.userSession.clientProxy.userIdentity(for: roomMemberProxy.userID, fallBackToServer: false)
-                    let user: UserProfileProxy = .init(userID: roomMemberProxy.userID, displayName: roomMemberProxy.displayName, avatarURL: roomMemberProxy.avatarURL)
+                    let user: UserProfile = .init(userID: roomMemberProxy.userID, displayName: roomMemberProxy.displayName, avatarURL: roomMemberProxy.avatarURL)
                     let isUnknown = if case .success(let identity) = identity {
                         identity == nil
                     } else {
@@ -221,7 +220,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
     
     private func createDirectChat() async {
         guard let roomMemberProxy else { fatalError() }
-
+        
         let loadingIndicatorIdentifier = "createDirectChatLoadingIndicator"
         userIndicatorController.submitIndicator(UserIndicator(id: loadingIndicatorIdentifier,
                                                               type: .modal(progress: .indeterminate, interactiveDismissDisabled: true, allowsInteraction: false),
@@ -252,7 +251,7 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
     private var loadingIndicatorIdentifier: String {
         "\(Self.self)-Loading"
     }
-
+    
     private var statusIndicatorIdentifier: String {
         "\(Self.self)-Status"
     }
@@ -273,6 +272,6 @@ class RoomMemberDetailsScreenViewModel: RoomMemberDetailsScreenViewModelType, Ro
         userIndicatorController.submitIndicator(UserIndicator(id: statusIndicatorIdentifier,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }

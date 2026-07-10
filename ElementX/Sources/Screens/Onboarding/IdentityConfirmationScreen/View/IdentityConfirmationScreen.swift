@@ -46,7 +46,8 @@ struct IdentityConfirmationScreen: View {
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
                 .padding(.bottom, 8)
-
+                .accessibilityAddTraits(.isHeader)
+            
             Text(L10n.screenIdentityConfirmationSubtitle)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -115,6 +116,7 @@ struct IdentityConfirmationScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct IdentityConfirmationScreen_Previews: PreviewProvider, TestablePreview {
     static var viewModel = makeViewModel()
     static var loadingViewModel = makeViewModel(recoveryState: .unknown)
@@ -140,7 +142,7 @@ struct IdentityConfirmationScreen_Previews: PreviewProvider, TestablePreview {
         userSession.sessionSecurityStatePublisher = CurrentValuePublisher<SessionSecurityState, Never>(.init(verificationState: .unverified, recoveryState: recoveryState))
         
         return IdentityConfirmationScreenViewModel(userSession: userSession,
-                                                   appSettings: AppSettings(),
-                                                   userIndicatorController: UserIndicatorControllerMock.default)
+                                                   appSettings: .volatile(),
+                                                   userIndicatorController: UserIndicatorControllerMock())
     }
 }

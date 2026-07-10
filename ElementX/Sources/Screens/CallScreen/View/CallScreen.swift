@@ -71,10 +71,8 @@ private struct CallView: UIViewRepresentable {
         }
     }
     
-    @MainActor
     class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate, AVPictureInPictureControllerDelegate {
         private weak var viewModelContext: CallScreenViewModel.Context?
-        private let certificateValidator: CertificateValidatorHookProtocol
         
         private var webView: WKWebView!
         private var pictureInPictureController: AVPictureInPictureController?
@@ -88,9 +86,8 @@ private struct CallView: UIViewRepresentable {
         
         init(viewModelContext: CallScreenViewModel.Context) {
             self.viewModelContext = viewModelContext
-            certificateValidator = viewModelContext.viewState.certificateValidator
             pictureInPictureViewController = AVPictureInPictureVideoCallViewController()
-            pictureInPictureViewController.preferredContentSize = CGSize(width: 1920, height: 1080)
+            pictureInPictureViewController.preferredContentSize = PiPSize.portrait.size
             
             super.init()
             
@@ -170,6 +167,9 @@ private struct CallView: UIViewRepresentable {
                     if let error {
                         continuaton.resume(throwing: error)
                     } else {
+                        // The completion is called on the main thread which the continuation
+                        // also resumes on, so the result never actually crosses threads.
+                        nonisolated(unsafe) let result = result
                         continuaton.resume(returning: result)
                     }
                 }
@@ -194,11 +194,21 @@ private struct CallView: UIViewRepresentable {
                 viewModelContext?.send(viewAction: .outputDeviceSelected(deviceID: deviceID))
             case .onBackButtonPressed:
                 viewModelContext?.send(viewAction: .navigateBack)
+            case .onPipMediaOrientationUpdate:
+                guard let orientation = message.body as? String else { return }
+                switch orientation {
+                case "portrait":
+                    pictureInPictureViewController.preferredContentSize = PiPSize.portrait.size
+                case "landscape":
+                    pictureInPictureViewController.preferredContentSize = PiPSize.landscape.size
+                default:
+                    break
+                }
             case .forwardLogs:
                 guard let body = message.body as? [String: String],
                       let level = body["level"],
                       let logMessage = body["message"] else { return }
-
+                
                 switch level {
                 case "log", "debug":
                     MXLog.debug("[ElementCall]: \(logMessage)")
@@ -237,10 +247,6 @@ private struct CallView: UIViewRepresentable {
         }
         
         // MARK: - WKNavigationDelegate
-        
-        func webView(_ webView: WKWebView, respondTo challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
-            await certificateValidator.respondTo(challenge)
-        }
         
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
             if let navigationURL = navigationAction.request.url {
@@ -346,27 +352,44 @@ private struct CallView: UIViewRepresentable {
             coordinator?.userContentController(userContentController, didReceive: message)
         }
     }
+    
+    private enum PiPSize {
+        case portrait
+        case landscape
+        
+        var size: CGSize {
+            switch self {
+            case .portrait:
+                .init(width: 1080, height: 1920)
+            case .landscape:
+                .init(width: 1920, height: 1080)
+            }
+        }
+    }
 }
 
 // MARK: - Previews
 
 struct CallScreen_Previews: PreviewProvider {
-    static let viewModel = {
+    static let viewModel = makeViewModel()
+    
+    static var previews: some View {
+        CallScreen(context: viewModel.context)
+    }
+    
+    static func makeViewModel() -> CallScreenViewModel {
         let clientProxy = ClientProxyMock()
         clientProxy.deviceID = "call-device-id"
         
         let roomProxy = JoinedRoomProxyMock()
         
         let widgetDriver = ElementCallWidgetDriverMock()
-        widgetDriver.underlyingMessagePublisher = .init()
-        widgetDriver.underlyingActions = PassthroughSubject<ElementCallWidgetDriverAction, Never>().eraseToAnyPublisher()
+        widgetDriver.messagePublisher = .init()
+        widgetDriver.actions = PassthroughSubject<ElementCallWidgetDriverAction, Never>().eraseToAnyPublisher()
         widgetDriver.startBaseURLClientIDColorSchemeVoiceOnlyRageshakeURLAnalyticsConfigurationReturnValue = .success(URL.userDirectory)
         
         roomProxy.elementCallWidgetDriverDeviceIDReturnValue = widgetDriver
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
         return CallScreenViewModel(elementCallService: ElementCallServiceMock(.init()),
                                    configuration: .init(roomProxy: roomProxy,
                                                         clientProxy: clientProxy,
@@ -376,12 +399,7 @@ struct CallScreen_Previews: PreviewProvider {
                                                         voiceOnly: false,
                                                         colorScheme: .light),
                                    allowPictureInPicture: false,
-                                   appHooks: AppHooks(),
-                                   appSettings: appSettings,
-                                   analyticsService: analytics)
-    }()
-    
-    static var previews: some View {
-        CallScreen(context: viewModel.context)
+                                   appSettings: .volatile(),
+                                   analyticsService: AnalyticsServiceMock(.init()))
     }
 }

@@ -9,7 +9,6 @@
 import Foundation
 
 // periphery:ignore - markdown protocol
-@MainActor
 protocol FlowCoordinatorProtocol {
     func start(animated: Bool)
     func handleAppRoute(_ appRoute: AppRoute, animated: Bool)
@@ -25,7 +24,6 @@ extension FlowCoordinatorProtocol {
 /// Core parameters that are shared across the main flows for easy dependency injection.
 ///
 /// Please do **not** pass this type directly to screen coordinators/view models.
-@MainActor
 struct CommonFlowParameters {
     let userSession: UserSessionProtocol
     let bugReportService: BugReportServiceProtocol
@@ -36,7 +34,7 @@ struct CommonFlowParameters {
     let appMediator: AppMediatorProtocol
     let appSettings: AppSettings
     let appHooks: AppHooks
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
     let notificationManager: NotificationManagerProtocol
     let stateMachineFactory: StateMachineFactoryProtocol
@@ -44,7 +42,7 @@ struct CommonFlowParameters {
     var windowManager: WindowManagerProtocol {
         appMediator.windowManager
     }
-
+    
     var ongoingCallRoomIDPublisher: CurrentValuePublisher<String?, Never> {
         elementCallService.ongoingCallRoomIDPublisher
     }

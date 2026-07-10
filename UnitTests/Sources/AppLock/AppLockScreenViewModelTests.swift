@@ -21,15 +21,10 @@ final class AppLockScreenViewModelTests {
     }
     
     init() {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
+        appSettings = AppSettings.volatile()
         keychainController = KeychainControllerMock()
         appLockService = AppLockService(keychainController: keychainController, appSettings: appSettings)
         viewModel = AppLockScreenViewModel(appLockService: appLockService)
-    }
-    
-    deinit {
-        AppSettings.resetAllSettings()
     }
     
     @Test
@@ -46,6 +41,19 @@ final class AppLockScreenViewModelTests {
         
         // The app should become unlocked.
         #expect(result == .appUnlocked)
+    }
+    
+    @Test
+    func cancelVerifyDeviceOwner() async throws {
+        // Given a screen shown to verify the device owner.
+        viewModel = AppLockScreenViewModel(appLockService: appLockService, mode: .verifyDeviceOwner)
+        
+        // When the user cancels.
+        let deferred = deferFulfillment(viewModel.actions) { $0 == .cancelVerifyDeviceOwner }
+        viewModel.context.send(viewAction: .cancelVerifyDeviceOwner)
+        
+        // Then the cancellation should be reported.
+        try await deferred.fulfill()
     }
     
     @Test

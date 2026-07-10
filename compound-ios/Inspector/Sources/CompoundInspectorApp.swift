@@ -7,7 +7,6 @@
 //
 
 import Compound
-import HyperionCore
 import SwiftUI
 
 @main
@@ -18,7 +17,7 @@ struct CompoundInspectorApp: App {
     private var isDark: Bool {
         colorScheme == .dark
     }
-
+    
     private var preferredColorScheme: ColorScheme? {
         ProcessInfo.processInfo.isMacCatalystApp ? colorScheme : nil
     }
@@ -48,11 +47,6 @@ struct CompoundInspectorApp: App {
         }
         .commands {
             CommandMenu("Options") {
-                Button("Hyperion", action: HyperionManager.sharedInstance().togglePluginDrawer)
-                    .keyboardShortcut("i", modifiers: [.command, .option])
-                
-                Divider()
-                
                 Button("Toggle Appearance", action: toggleDarkMode)
                     .keyboardShortcut("a", modifiers: [.command, .shift])
                 
@@ -81,10 +75,6 @@ struct CompoundInspectorApp: App {
             Image(systemName: "textformat.size")
         }
         #endif
-
-        Button(action: HyperionManager.sharedInstance().togglePluginDrawer) {
-            Image(systemName: "ruler")
-        }
     }
     
     func toggleDarkMode() {

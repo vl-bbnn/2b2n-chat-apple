@@ -11,13 +11,18 @@ import MatrixRustSDK
 
 enum MessageForwardingScreenViewModelAction {
     case dismiss
-    case sent(roomID: String)
+    case sent(roomIDs: [String])
 }
 
 struct MessageForwardingScreenViewState: BindableState {
     var rooms: [MessageForwardingRoom] = []
-    var selectedRoomID: String?
+    var selectedRoomIDs: Set<String> = []
+    let maxRoomSelectionCount = 10
     var bindings = MessageForwardingScreenViewStateBindings()
+    
+    var isAtRoomSelectionLimit: Bool {
+        selectedRoomIDs.count >= maxRoomSelectionCount
+    }
 }
 
 struct MessageForwardingScreenViewStateBindings {

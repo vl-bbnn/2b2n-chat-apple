@@ -28,8 +28,9 @@ class MediaUploadPreviewScreenViewModel: MediaUploadPreviewScreenViewModelType, 
     var actions: AnyPublisher<MediaUploadPreviewScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(mediaURLs: [URL],
+         caption: NSAttributedString?,
          title: String?,
          isRoomEncrypted: Bool,
          shouldShowCaptionWarning: Bool,
@@ -49,7 +50,8 @@ class MediaUploadPreviewScreenViewModel: MediaUploadPreviewScreenViewModelType, 
         super.init(initialViewState: MediaUploadPreviewScreenViewState(mediaURLs: mediaURLs,
                                                                        title: title,
                                                                        shouldShowCaptionWarning: shouldShowCaptionWarning,
-                                                                       isRoomEncrypted: isRoomEncrypted))
+                                                                       isRoomEncrypted: isRoomEncrypted,
+                                                                       bindings: .init(caption: caption ?? NSAttributedString())))
     }
     
     override func process(viewAction: MediaUploadPreviewScreenViewAction) {
@@ -123,7 +125,7 @@ class MediaUploadPreviewScreenViewModel: MediaUploadPreviewScreenViewModelType, 
     }
     
     private func sendAttachment(mediaInfo: MediaInfo, caption: String?) async -> Result<Void, TimelineControllerError> {
-        let requestHandle: ((SendAttachmentJoinHandleProtocol) -> Void) = { [weak self] handle in
+        let requestHandle: (@MainActor @Sendable (SendAttachmentJoinHandleProtocol) -> Void) = { [weak self] handle in
             self?.requestHandle = handle
         }
         

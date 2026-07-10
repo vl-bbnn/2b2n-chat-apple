@@ -8,12 +8,12 @@
 
 import Foundation
 
-enum VoiceMessageCacheError: Error {
+nonisolated enum VoiceMessageCacheError: Error {
     case invalidFileExtension
     case failedStoringFileInCache
 }
 
-protocol VoiceMessageCacheProtocol {
+nonisolated protocol VoiceMessageCacheProtocol: Sendable {
     /// URL to use for recording
     var urlForRecording: URL { get }
     
@@ -29,7 +29,7 @@ protocol VoiceMessageCacheProtocol {
     ///   - move: wheter to move or copy the source file
     /// - Returns: the cached URL
     func cache(mediaSource: MediaSourceProxy, using fileURL: URL, move: Bool) -> Result<URL, VoiceMessageCacheError>
-        
+    
     /// Clears the cache
     func clearCache()
 }

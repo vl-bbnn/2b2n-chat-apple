@@ -10,13 +10,13 @@
 import Foundation
 import Testing
 
+@MainActor
 struct AppRouteURLParserTests {
     var appSettings: AppSettings
     var appRouteURLParser: AppRouteURLParser
     
     init() {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
+        appSettings = AppSettings.volatile()
         appRouteURLParser = AppRouteURLParser(appSettings: appSettings)
     }
     

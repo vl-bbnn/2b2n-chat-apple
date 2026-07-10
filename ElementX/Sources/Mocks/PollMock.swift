@@ -11,19 +11,20 @@ import Foundation
 extension Poll {
     static func mock(question: String,
                      pollKind: Poll.Kind = .disclosed,
+                     maxSelections: Int = 1,
                      options: [Poll.Option],
                      votes: [String: [String]] = [:],
                      ended: Bool = false,
                      createdByAccountOwner: Bool = false) -> Self {
         .init(question: question,
               kind: pollKind,
-              maxSelections: 1,
+              maxSelections: maxSelections,
               options: options,
               votes: votes,
               endDate: ended ? Date() : nil,
               createdByAccountOwner: createdByAccountOwner)
     }
-
+    
     static func disclosed(createdByAccountOwner: Bool = false) -> Self {
         mock(question: "What country do you like most?",
              pollKind: .disclosed,
@@ -32,7 +33,7 @@ extension Poll {
                        .mock(text: "USA 🇺🇸", votes: 2, allVotes: 10)],
              createdByAccountOwner: createdByAccountOwner)
     }
-
+    
     static func undisclosed(createdByAccountOwner: Bool = false) -> Self {
         mock(question: "What country do you like most?",
              pollKind: .undisclosed,
@@ -41,7 +42,7 @@ extension Poll {
                        .mock(text: "USA 🇺🇸", votes: 2, allVotes: 10)],
              createdByAccountOwner: createdByAccountOwner)
     }
-
+    
     static var endedDisclosed: Self {
         mock(question: "What country do you like most?",
              pollKind: .disclosed,
@@ -50,7 +51,7 @@ extension Poll {
                        .mock(text: "USA 🇺🇸", votes: 2, allVotes: 10)],
              ended: true)
     }
-
+    
     static var endedUndisclosed: Self {
         mock(question: "What country do you like most?",
              pollKind: .undisclosed,

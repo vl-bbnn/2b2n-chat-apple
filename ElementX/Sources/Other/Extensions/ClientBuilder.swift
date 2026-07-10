@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-extension ClientBuilder {
+nonisolated extension ClientBuilder {
     /// A helper method that applies the common builder modifiers needed for the app.
     static func baseBuilder(setupEncryption: Bool = true,
                             httpProxy: String? = nil,
@@ -43,7 +43,7 @@ extension ClientBuilder {
                 .enableShareHistoryOnInvite(enableShareHistoryOnInvite: true)
                 .autoEnableBackups(autoEnableBackups: true)
         }
-
+        
         // Set recipient strategy and trust requirement even if `setupEncryption` is false to ensure messages
         // from insecure devices aren't displayed in push notifications.
         // See https://github.com/element-hq/element-x-ios/issues/4702.

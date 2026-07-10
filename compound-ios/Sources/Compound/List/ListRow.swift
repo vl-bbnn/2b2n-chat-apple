@@ -30,6 +30,8 @@ public enum ListRowPadding {
                                                    leading: horizontal,
                                                    bottom: 11,
                                                    trailing: horizontal)
+    
+    public static let labelIconSpacing: CGFloat = Compound.supportsGlass ? 12 : 16
 }
 
 public struct ListRow<Icon: View, DetailsIcon: View, CustomContent: View, SelectionValue: Hashable>: View {
@@ -50,7 +52,7 @@ public struct ListRow<Icon: View, DetailsIcon: View, CustomContent: View, Select
         case textField(text: Binding<String>, axis: Axis?)
         case secureField(text: Binding<String>)
         
-        case custom(() -> CustomView)
+        case custom(@MainActor () -> CustomView)
         
         public static func textField(text: Binding<String>) -> Self {
             .textField(text: text, axis: nil)
@@ -137,6 +139,8 @@ public struct ListRow<Icon: View, DetailsIcon: View, CustomContent: View, Select
             .tint(.compound.iconAccentTertiary)
             .foregroundStyle(isEnabled ? .compound.textPrimary : .compound.textDisabled)
             .listRowInsets(ListRowPadding.textFieldInsets)
+            // The title is used as the placeholder, which VoiceOver only reads while empty.
+            .accessibilityLabel(label.title ?? "")
         case .secureField(let text):
             SecureField(text: text) {
                 Text(label.title ?? "")
@@ -145,7 +149,8 @@ public struct ListRow<Icon: View, DetailsIcon: View, CustomContent: View, Select
             .tint(.compound.iconAccentTertiary)
             .foregroundStyle(isEnabled ? .compound.textPrimary : .compound.textDisabled)
             .listRowInsets(ListRowPadding.textFieldInsets)
-        
+            .accessibilityLabel(label.title ?? "")
+            
         case .custom(let content):
             content()
         }

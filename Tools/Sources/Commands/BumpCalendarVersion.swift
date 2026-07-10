@@ -5,7 +5,7 @@ import Foundation
 struct BumpCalendarVersion: ParsableCommand {
     static let configuration = CommandConfiguration(abstract: "A tool that bumps the CalVer every month (if needed), setting the patch back to 0.",
                                                     discussion: "The tool assumes the release will be published in 6-days so bumps early.")
-
+    
     func run() throws {
         try updateProjectYAML()
         try Zsh.run(command: "xcodegen")
@@ -14,7 +14,7 @@ struct BumpCalendarVersion: ParsableCommand {
     /// Updates the project YAML with the new version.
     private func updateProjectYAML() throws {
         let yamlURL = URL.projectDirectory.appendingPathComponent("project.yml")
-        let yamlString = try String(contentsOf: yamlURL)
+        let yamlString = try String(contentsOf: yamlURL, encoding: .utf8)
         
         // Use regex instead of Yams to preserve any whitespace, comments etc in the file.
         let marketingVersionRegex = /MARKETING_VERSION:\s*([^\s]+)/

@@ -4,11 +4,11 @@ import Foundation
 struct UnitTests: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "unit-tests",
                                                     abstract: "Runs the unit test CI workflow: lint, unit tests, preview tests, and result collection.")
-        
+    
     @Flag(help: "Skip preview tests")
     var skipPreviews = false
     
-    private static let osVersion = "26.4.1"
+    private static let osVersion = CI.defaultOSVersion
     private static let device = "iPhone 17"
     
     func run() async throws {

@@ -187,36 +187,34 @@ struct MediaEventsTimelineScreen: View {
         } bottomContent: { EmptyView() }
     }
     
+    @ViewBuilder
     private var emptyMedia: some View {
-        Group {
-            BigIcon(icon: \.image)
-            
-            Text(L10n.screenMediaBrowserMediaEmptyStateTitle)
-                .foregroundColor(.compound.textPrimary)
-                .font(.compound.headingMDBold)
-                .multilineTextAlignment(.center)
-            
-            Text(L10n.screenMediaBrowserMediaEmptyStateSubtitle)
-                .foregroundColor(.compound.textSecondary)
-                .font(.compound.bodyMD)
-                .multilineTextAlignment(.center)
-        }
+        BigIcon(icon: \.image)
+        
+        Text(L10n.screenMediaBrowserMediaEmptyStateTitle)
+            .foregroundColor(.compound.textPrimary)
+            .font(.compound.headingMDBold)
+            .multilineTextAlignment(.center)
+        
+        Text(L10n.screenMediaBrowserMediaEmptyStateSubtitle)
+            .foregroundColor(.compound.textSecondary)
+            .font(.compound.bodyMD)
+            .multilineTextAlignment(.center)
     }
     
+    @ViewBuilder
     private var emptyFiles: some View {
-        Group {
-            BigIcon(icon: \.document)
-            
-            Text(L10n.screenMediaBrowserFilesEmptyStateTitle)
-                .foregroundColor(.compound.textPrimary)
-                .font(.compound.headingMDBold)
-                .multilineTextAlignment(.center)
-            
-            Text(L10n.screenMediaBrowserFilesEmptyStateSubtitle)
-                .foregroundColor(.compound.textSecondary)
-                .font(.compound.bodyMD)
-                .multilineTextAlignment(.center)
-        }
+        BigIcon(icon: \.document)
+        
+        Text(L10n.screenMediaBrowserFilesEmptyStateTitle)
+            .foregroundColor(.compound.textPrimary)
+            .font(.compound.headingMDBold)
+            .multilineTextAlignment(.center)
+        
+        Text(L10n.screenMediaBrowserFilesEmptyStateSubtitle)
+            .foregroundColor(.compound.textSecondary)
+            .font(.compound.bodyMD)
+            .multilineTextAlignment(.center)
     }
     
     @ToolbarContentBuilder
@@ -298,29 +296,27 @@ struct MediaEventsTimelineScreen_Previews: PreviewProvider, TestablePreview {
         MediaEventsTimelineScreenViewModel(mediaTimelineViewModel: makeTimelineViewModel(empty: empty),
                                            filesTimelineViewModel: makeTimelineViewModel(empty: empty),
                                            initialScreenMode: screenMode,
-                                           mediaProvider: MediaProviderMock(configuration: .init()),
+                                           mediaProvider: MediaProviderMock(.init()),
                                            userIndicatorController: UserIndicatorControllerMock(),
                                            appMediator: AppMediatorMock())
     }
     
     private static func makeTimelineViewModel(empty: Bool) -> TimelineViewModel {
         let timelineController = if empty {
-            MockTimelineController.emptyMediaGallery
+            TimelineControllerMock.emptyMediaGallery
         } else {
-            MockTimelineController.mediaGallery
+            TimelineControllerMock.mediaGallery
         }
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
+        let appSettings = AppSettings.volatile()
         return TimelineViewModel(roomProxy: JoinedRoomProxyMock(.init(name: "Preview room")),
                                  timelineController: timelineController,
                                  userSession: UserSessionMock(.init()),
                                  mediaPlayerProvider: MediaPlayerProviderMock(),
                                  userIndicatorController: UserIndicatorControllerMock(),
-                                 appMediator: AppMediatorMock.default,
+                                 appMediator: AppMediatorMock(.init()),
                                  appSettings: appSettings,
-                                 analyticsService: analytics,
+                                 analyticsService: AnalyticsServiceMock(.init()),
                                  emojiProvider: EmojiProvider(appSettings: appSettings),
                                  linkMetadataProvider: LinkMetadataProvider(),
                                  timelineControllerFactory: TimelineControllerFactoryMock(.init()))

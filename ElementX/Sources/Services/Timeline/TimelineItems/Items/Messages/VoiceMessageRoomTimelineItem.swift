@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct VoiceMessageRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
+nonisolated struct VoiceMessageRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equatable {
     let id: TimelineItemIdentifier
     let timestamp: Date
     let isOutgoing: Bool
@@ -18,7 +18,7 @@ struct VoiceMessageRoomTimelineItem: EventBasedMessageTimelineItemProtocol, Equa
     let sender: TimelineItemSender
     
     let content: AudioRoomTimelineItemContent
-
+    
     var properties = RoomTimelineItemProperties()
     
     var body: String {

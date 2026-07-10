@@ -8,7 +8,7 @@
 
 import Foundation
 
-final class MockCoder: NSKeyedArchiver {
+final nonisolated class MockCoder: NSKeyedArchiver {
     deinit {
         finishEncoding()
     }
@@ -16,7 +16,7 @@ final class MockCoder: NSKeyedArchiver {
     override func decodeObject(forKey _: String) -> Any {
         ""
     }
-
+    
     override func decodeInt64(forKey key: String) -> Int64 {
         0
     }

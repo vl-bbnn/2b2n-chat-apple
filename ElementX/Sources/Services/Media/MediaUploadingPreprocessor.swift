@@ -31,7 +31,7 @@ indirect enum MediaUploadingPreprocessorError: Error {
 }
 
 enum MediaInfo {
-    case image(imageURL: URL, thumbnailURL: URL, imageInfo: ImageInfo)
+    case image(imageURL: URL, thumbnailURL: URL?, imageInfo: ImageInfo)
     case video(videoURL: URL, thumbnailURL: URL, videoInfo: VideoInfo)
     case audio(audioURL: URL, audioInfo: AudioInfo)
     case file(fileURL: URL, fileInfo: FileInfo)
@@ -61,7 +61,9 @@ enum MediaInfo {
     
     var thumbnailURL: URL? {
         switch self {
-        case .image(_, let url, _), .video(_, let url, _):
+        case .image(_, let url, _):
+            return url
+        case .video(_, let url, _):
             return url
         case .audio, .file:
             return nil
@@ -160,7 +162,8 @@ struct MediaUploadingPreprocessor {
     
     // MARK: - Private
     
-    /// Prepares an image for upload. Strips location data from it and generates a thumbnail
+    /// Prepares an image for upload. Strips location data from it and generates a thumbnail.
+    /// Ultra HDR JPEGs are preserved byte-for-byte so their gain map stays attached.
     /// - Parameters:
     ///   - url: The image URL
     ///   - type: its UTType
@@ -168,10 +171,14 @@ struct MediaUploadingPreprocessor {
     /// - Returns: Returns a `MediaInfo.image` containing the URLs for the modified image and its thumbnail plus the corresponding `ImageInfo`
     private func processImage(at url: inout URL, type: UTType, mimeType: String, maxUploadSize: UInt) -> Result<MediaInfo, MediaUploadingPreprocessorError> {
         do {
-            try stripLocationFromImage(at: url, type: type)
+            let shouldPreserveOriginal = try isUltraHDRJPEG(at: url, type: type)
             
             var mimeType = mimeType
-            if appSettings.optimizeMediaUploads, !type.conforms(to: .gif) {
+            if !shouldPreserveOriginal {
+                try stripLocationFromImage(at: url, type: type)
+            }
+            
+            if !shouldPreserveOriginal, appSettings.optimizeMediaUploads, !type.conforms(to: .gif) {
                 let outputType = type.conforms(to: .png) ? UTType.png : .jpeg
                 mimeType = outputType.preferredMIMEType ?? "application/octet-stream"
                 try resizeImage(at: url, maxPixelSize: Constants.optimizedMaxPixelSize, destination: url, type: outputType)
@@ -188,7 +195,7 @@ struct MediaUploadingPreprocessor {
                 }
             }
             
-            let thumbnailResult = try generateThumbnailForImage(at: url)
+            let thumbnailResult = shouldPreserveOriginal ? nil : try generateThumbnailForImage(at: url)
             
             guard let imageSource = CGImageSourceCreateWithURL(url as NSURL, nil),
                   let imageSize = imageSource.size else {
@@ -196,14 +203,16 @@ struct MediaUploadingPreprocessor {
             }
             
             let fileSize = (try? FileManager.default.sizeForItem(at: url)) ?? 0
-            let thumbnailFileSize = (try? FileManager.default.sizeForItem(at: thumbnailResult.url)) ?? 0
+            let thumbnailFileSize = thumbnailResult.flatMap { try? FileManager.default.sizeForItem(at: $0.url) } ?? 0
             
             guard fileSize < maxUploadSize, thumbnailFileSize < maxUploadSize else { return .failure(.maxUploadSizeExceeded(limit: maxUploadSize)) }
             
-            let thumbnailInfo = ThumbnailInfo(height: UInt64(thumbnailResult.height),
-                                              width: UInt64(thumbnailResult.width),
-                                              mimetype: thumbnailResult.mimeType,
-                                              size: UInt64(thumbnailFileSize))
+            let thumbnailInfo = thumbnailResult.map {
+                ThumbnailInfo(height: UInt64($0.height),
+                              width: UInt64($0.width),
+                              mimetype: $0.mimeType,
+                              size: UInt64(thumbnailFileSize))
+            }
             
             let imageInfo = ImageInfo(height: UInt64(imageSize.height),
                                       width: UInt64(imageSize.width),
@@ -211,14 +220,35 @@ struct MediaUploadingPreprocessor {
                                       size: UInt64(fileSize),
                                       thumbnailInfo: thumbnailInfo,
                                       thumbnailSource: nil,
-                                      blurhash: thumbnailResult.blurhash,
+                                      blurhash: thumbnailResult?.blurhash,
                                       isAnimated: nil)
             
-            let mediaInfo = MediaInfo.image(imageURL: url, thumbnailURL: thumbnailResult.url, imageInfo: imageInfo)
+            let mediaInfo = MediaInfo.image(imageURL: url, thumbnailURL: thumbnailResult?.url, imageInfo: imageInfo)
             
             return .success(mediaInfo)
         } catch {
             return .failure(.failedProcessingImage(error))
+        }
+    }
+    
+    private func isUltraHDRJPEG(at url: URL, type: UTType) throws(MediaUploadingPreprocessorError) -> Bool {
+        guard type.conforms(to: .jpeg) else {
+            return false
+        }
+        
+        guard let data = try? Data(contentsOf: url) else {
+            throw .failedProcessingImage(.failedStrippingLocationData)
+        }
+        
+        return [
+            "http://ns.adobe.com/hdr-gain-map/1.0/",
+            "urn:com:apple:photo:2020:aux:hdrgainmap",
+            "Item:Semantic=\"GainMap\"",
+            "Item:Semantic=\"GainMap",
+            "HDRGainMap",
+            "HdrGainMap"
+        ].contains { marker in
+            data.range(of: Data(marker.utf8)) != nil
         }
     }
     
@@ -358,7 +388,7 @@ struct MediaUploadingPreprocessor {
         
         return .init(url: thumbnailURL, height: thumbnail.size.height, width: thumbnail.size.width, mimeType: "image/jpeg", blurhash: blurhash)
     }
-        
+    
     private func resizeImage(at url: URL, maxPixelSize: CGFloat, destination: URL, type: UTType) throws(MediaUploadingPreprocessorError) {
         guard let imageSource = CGImageSourceCreateWithURL(url as NSURL, nil) else {
             throw .failedResizingImage
@@ -440,7 +470,7 @@ struct MediaUploadingPreprocessor {
     private func convertVideoToMP4(_ url: URL, targetFileSize: UInt) async throws(MediaUploadingPreprocessorError) -> VideoProcessingInfo {
         let asset = AVURLAsset(url: url)
         let presetName = appSettings.optimizeMediaUploads ? AVAssetExportPreset1280x720 : AVAssetExportPreset1920x1080
-
+        
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: presetName) else {
             throw .failedConvertingVideo
         }
@@ -524,11 +554,11 @@ private extension AVAssetTrack {
             guard mediaType == .video else {
                 return naturalSize
             }
-
+            
             // The naturalSize does not take the preferredTransform into consideration resulting
             // in portrait videos reporting inverted values.
             let transform = try await load(.preferredTransform)
-
+            
             switch (transform.a, transform.b, transform.c, transform.d) {
             case (0, 1, -1, 0), (0, -1, 1, 0):
                 return CGSize(width: naturalSize.height, height: naturalSize.width)

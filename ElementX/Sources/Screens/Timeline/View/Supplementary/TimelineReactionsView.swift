@@ -9,11 +9,10 @@
 import Compound
 import SwiftUI
 
-@MainActor
 struct TimelineReactionsView: View {
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .heavy)
     @Environment(\.layoutDirection) private var layoutDirection: LayoutDirection
-
+    
     let context: TimelineViewModel.Context
     let itemID: TimelineItemIdentifier
     let reactions: [AggregatedReaction]

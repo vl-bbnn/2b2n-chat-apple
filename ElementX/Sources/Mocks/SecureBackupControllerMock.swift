@@ -19,10 +19,10 @@ extension SecureBackupControllerMock {
         self.init()
         
         let recoveryStateSubject = CurrentValueSubject<SecureBackupRecoveryState, Never>(configuration.recoveryState)
-        underlyingRecoveryState = .init(recoveryStateSubject)
+        recoveryState = .init(recoveryStateSubject)
         
         let keyBackupStateSubject = CurrentValueSubject<SecureBackupKeyBackupState, Never>(configuration.keyBackupState)
-        underlyingKeyBackupState = .init(keyBackupStateSubject)
+        keyBackupState = .init(keyBackupStateSubject)
         
         disableClosure = {
             recoveryStateSubject.send(.disabled)
@@ -36,7 +36,7 @@ extension SecureBackupControllerMock {
             return .success(())
         }
         
-        generateRecoveryKeyClosure = {
+        generateRecoveryKeyWithPassphraseClosure = { _ in
             recoveryStateSubject.send(.enabled)
             return .success("a1B2 C3d4 E5F6 g7H8 i9J0 K1l2 M3n4 O5p6 Q7R8 s9T0 U1v2 W3X4")
         }

@@ -11,17 +11,18 @@ import Foundation
 import MatrixRustSDK
 
 private final class WeakNotificationSettingsProxy: NotificationSettingsDelegate {
-    private weak var proxy: NotificationSettingsProxy?
+    @MainActor private weak var proxy: NotificationSettingsProxy?
     
-    init(proxy: NotificationSettingsProxy) {
+    @MainActor init(proxy: NotificationSettingsProxy) {
         self.proxy = proxy
     }
     
     // MARK: - NotificationSettingsDelegate
     
+    /// Called by the SDK from arbitrary threads, hop to the main actor where the proxy lives.
     func settingsDidChange() {
-        Task {
-            await proxy?.settingsDidChange()
+        Task { @MainActor in
+            self.proxy?.settingsDidChange()
         }
     }
 }
@@ -30,7 +31,7 @@ final class NotificationSettingsProxy: NotificationSettingsProxyProtocol {
     private(set) var notificationSettings: MatrixRustSDK.NotificationSettingsProtocol
     
     let callbacks = PassthroughSubject<NotificationSettingsProxyCallback, Never>()
-
+    
     init(notificationSettings: MatrixRustSDK.NotificationSettingsProtocol) {
         self.notificationSettings = notificationSettings
         notificationSettings.setDelegate(delegate: WeakNotificationSettingsProxy(proxy: self))
@@ -55,7 +56,7 @@ final class NotificationSettingsProxy: NotificationSettingsProxyProtocol {
         let roomNotificationMode = await notificationSettings.getDefaultRoomNotificationMode(isEncrypted: isEncrypted, isOneToOne: isOneToOne)
         return RoomNotificationModeProxy.from(roomNotificationMode: roomNotificationMode)
     }
-
+    
     func setDefaultRoomNotificationMode(isEncrypted: Bool, isOneToOne: Bool, mode: RoomNotificationModeProxy) async throws {
         do {
             try await notificationSettings.setDefaultRoomNotificationMode(isEncrypted: isEncrypted, isOneToOne: isOneToOne, mode: mode.roomNotificationMode)
@@ -65,7 +66,7 @@ final class NotificationSettingsProxy: NotificationSettingsProxyProtocol {
             MXLog.warning("Unable to find the rule: \(ruleId)")
             return
         }
-
+        
         await updatedSettings()
     }
     
@@ -73,7 +74,7 @@ final class NotificationSettingsProxy: NotificationSettingsProxyProtocol {
         try await notificationSettings.restoreDefaultRoomNotificationMode(roomId: roomId)
         await updatedSettings()
     }
-       
+    
     func unmuteRoom(roomId: String, isEncrypted: Bool, isOneToOne: Bool) async throws {
         try await notificationSettings.unmuteRoom(roomId: roomId, isEncrypted: isEncrypted, isOneToOne: isOneToOne)
         await updatedSettings()
@@ -119,12 +120,18 @@ final class NotificationSettingsProxy: NotificationSettingsProxyProtocol {
     func updatedSettings() async {
         // The timeout avoids having to wait indefinitely. This can happen when setting a mode that is already the current mode,
         // as in this case no API call is made by the RustSDK and the push rules are therefore not updated.
-        _ = await callbacks
+        var iterator = callbacks
             .timeout(.seconds(2.0), scheduler: DispatchQueue.main, options: nil, customError: nil)
-            .values.first { $0 == .settingsDidChange }
+            .values
+            .makeAsyncIterator()
+        
+        while let callback = await iterator.next(isolation: #isolation) {
+            if callback == .settingsDidChange {
+                break
+            }
+        }
     }
     
-    @MainActor
     func settingsDidChange() {
         callbacks.send(.settingsDidChange)
     }

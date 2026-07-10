@@ -83,7 +83,7 @@ struct InviteUsersScreen: View {
     private var usersSection: some View {
         if !context.viewState.usersSection.users.isEmpty {
             Section {
-                ForEach(context.viewState.usersSection.users, id: \.userID) { user in
+                ForEach(context.viewState.usersSection.users, id: \.id) { user in
                     UserProfileListRow(user: user,
                                        membership: context.viewState.membershipState(user),
                                        mediaProvider: context.mediaProvider,
@@ -105,11 +105,11 @@ struct InviteUsersScreen: View {
     }
     
     @ScaledMetric private var selectedUserCellWidth: CGFloat = 80
-
+    
     private var selectedUsersSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(context.viewState.selectedUsers, id: \.userID) { user in
+                ForEach(context.viewState.selectedUsers, id: \.id) { user in
                     InviteUsersScreenSelectedItem(user: user,
                                                   mediaProvider: context.mediaProvider,
                                                   isLocked: context.viewState.isInviteeMandatory(user)) {
@@ -150,7 +150,7 @@ struct InviteUsersScreen: View {
         }
     }
     
-    private func deselect(_ user: UserProfileProxy) {
+    private func deselect(_ user: UserProfile) {
         context.send(viewAction: .toggleUser(user))
     }
 }
@@ -204,16 +204,16 @@ struct InviteUsersScreen_Previews: PreviewProvider, TestablePreview {
                               isSkippable: Bool = true) -> InviteUsersScreenViewModel {
         let clientProxy = ClientProxyMock(.init())
         clientProxy.recentConversationCounterpartsReturnValue = [.mockAlice, .mockBob, .mockCharlie, .mockDan, .mockVerbose]
-
+        
         let userDiscoveryService = UserDiscoveryServiceMock()
         userDiscoveryService.searchProfilesWithReturnValue = .success([.mockAlice])
-
+        
         let viewModel = InviteUsersScreenViewModel(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
                                                    roomType: roomType ?? .existingRoom(roomProxy: JoinedRoomProxyMock(.init(members: []))),
                                                    isSkippable: isSkippable,
                                                    userDiscoveryService: userDiscoveryService,
                                                    userIndicatorController: UserIndicatorControllerMock(),
-                                                   appSettings: AppSettings())
+                                                   appSettings: .volatile())
         
         if let searchQuery {
             viewModel.context.searchQuery = searchQuery

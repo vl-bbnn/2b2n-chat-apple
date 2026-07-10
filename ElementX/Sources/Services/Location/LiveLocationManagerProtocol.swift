@@ -16,11 +16,9 @@ enum LiveLocationManagerError: Error {
 
 // sourcery: AutoMockable
 protocol LiveLocationManagerProtocol: AnyObject {
-    /// True if the live location disclaimer has been displayed already, will only be displayed once.
-    var hasDisplayedLiveLocationDisclaimer: Bool { get set }
     /// Publishes the current location authorization status.
     var authorizationStatus: CurrentValuePublisher<CLAuthorizationStatus, Never> { get }
-
+    
     /// Requests "Always" location authorization from the user if the system allows it.
     ///
     /// - Returns: `true` if the request was forwarded to the system and a prompt will be shown;

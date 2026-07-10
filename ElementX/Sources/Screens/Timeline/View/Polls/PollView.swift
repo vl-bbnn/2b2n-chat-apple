@@ -10,7 +10,7 @@ import Compound
 import SwiftUI
 
 enum PollViewAction {
-    case selectOption(optionID: String)
+    case sendResponse(answerIDs: [String])
     case edit
     case end
 }
@@ -59,7 +59,7 @@ struct PollView: View {
             .frame(maxWidth: 450)
         }
     }
-
+    
     // MARK: - Private
     
     private var senderString: String {
@@ -76,14 +76,14 @@ struct PollView: View {
                 .accessibilityElement(children: .combine)
             }
     }
-
+    
     private var questionView: some View {
         HStack(alignment: .top, spacing: 12) {
             CompoundIcon(poll.hasEnded ? \.pollsEnd : \.polls,
                          size: .custom(22),
                          relativeTo: .compound.bodyLGSemibold)
                 .accessibilityLabel(poll.hasEnded ? L10n.a11yPollEnd : L10n.a11yPoll)
-
+            
             Text(poll.question)
                 .multilineTextAlignment(.leading)
                 .font(.compound.bodyLGSemibold)
@@ -91,7 +91,7 @@ struct PollView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
     }
-
+    
     private var optionsView: some View {
         ForEach(poll.options, id: \.id) { option in
             pollOption(option: option)
@@ -100,13 +100,13 @@ struct PollView: View {
     }
     
     private func isRemovePreviousSelectionHintEnabled(option: Poll.Option) -> Bool {
-        !poll.hasEnded && poll.hasMaxSelections && !option.isSelected
+        !poll.hasEnded && poll.maxSelections == 1 && poll.hasMaxSelections && !option.isSelected
     }
     
     private func pollOption(option: Poll.Option) -> some View {
         Button {
-            guard !option.isSelected else { return }
-            actionHandler(.selectOption(optionID: option.id))
+            guard let answerIDs = poll.answerIDsAfterSelecting(optionID: option.id) else { return }
+            actionHandler(.sendResponse(answerIDs: answerIDs))
             feedbackGenerator.impactOccurred()
         } label: {
             PollOptionView(pollOption: option,
@@ -114,9 +114,27 @@ struct PollView: View {
                            isFinalResult: poll.hasEnded)
                 .foregroundColor(progressBarColor(for: option))
         }
-        .disabled(poll.hasEnded)
+        .disabled(isOptionDisabled(option))
     }
-
+    
+    private func isOptionDisabled(_ option: Poll.Option) -> Bool {
+        if poll.hasEnded {
+            return true
+        }
+        
+        // Single-choice polls replace the current answer; multi-choice polls keep
+        // at least one answer while enforcing the max.
+        if poll.maxSelections == 1 {
+            return option.isSelected
+        }
+        
+        if option.isSelected {
+            return poll.options.filter(\.isSelected).count == 1
+        }
+        
+        return poll.hasMaxSelections
+    }
+    
     @ViewBuilder
     private var summaryView: some View {
         if let summaryText = poll.summaryText {
@@ -127,7 +145,7 @@ struct PollView: View {
                 .frame(maxWidth: .infinity, alignment: showVotes ? .trailing : .leading)
         }
     }
-
+    
     @ViewBuilder
     private var toolbarView: some View {
         if !poll.hasEnded, poll.createdByAccountOwner {
@@ -157,7 +175,7 @@ struct PollView: View {
             actionHandler(.end)
         }
     }
-
+    
     private func progressBarColor(for option: Poll.Option) -> Color {
         if poll.hasEnded {
             return option.isWinning ? .compound.textActionAccent : .compound.textDisabled
@@ -165,7 +183,7 @@ struct PollView: View {
             return .compound.textPrimary
         }
     }
-
+    
     private var showVotes: Bool {
         poll.hasEnded || poll.kind == .disclosed
     }
@@ -178,7 +196,7 @@ private extension Poll {
                 L10n.commonPollTotalVotes($0.allVotes)
             }
         }
-
+        
         switch kind {
         case .disclosed:
             return options.first.map {
@@ -195,19 +213,19 @@ struct PollView_Previews: PreviewProvider, TestablePreview {
         PollView(poll: .disclosed(), state: .full(isEditable: false), sender: .test) { _ in }
             .padding()
             .previewDisplayName("Disclosed")
-
+        
         PollView(poll: .undisclosed(), state: .full(isEditable: false), sender: .test) { _ in }
             .padding()
             .previewDisplayName("Undisclosed")
-
+        
         PollView(poll: .endedDisclosed, state: .full(isEditable: false), sender: .test) { _ in }
             .padding()
             .previewDisplayName("Ended, Disclosed")
-
+        
         PollView(poll: .endedUndisclosed, state: .full(isEditable: false), sender: .test) { _ in }
             .padding()
             .previewDisplayName("Ended, Undisclosed")
-
+        
         PollView(poll: .disclosed(createdByAccountOwner: true), state: .full(isEditable: true), sender: .test) { _ in }
             .padding()
             .previewDisplayName("Creator, disclosed")

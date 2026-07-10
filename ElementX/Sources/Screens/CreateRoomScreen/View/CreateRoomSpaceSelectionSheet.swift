@@ -42,10 +42,8 @@ struct CreateRoomSpaceSelectionSheet: View {
                     }
                 }
             }
-            .listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 66)
-            .scrollContentBackground(.hidden)
-            .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
+            .compoundList(.plain)
             .navigationTitle(L10n.screenCreateRoomSpaceSelectionSheetTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -66,16 +64,15 @@ struct CreateRoomSpaceSelectionSheet_Previews: PreviewProvider, TestablePreview 
         let clientProxy = ClientProxyMock(.init(userID: "@userid:example.com"))
         clientProxy.spaceService = SpaceServiceProxyMock(.init(editableSpaces: .mockJoinedSpaces2))
         let userSession = UserSessionMock(.init(clientProxy: clientProxy))
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
+        let appSettings = AppSettings.volatile()
+        
         return CreateRoomScreenViewModel(isSpace: false,
                                          spaceSelectionMode: .editableSpacesList(preSelectedSpace: nil),
                                          shouldShowCancelButton: false,
                                          userSession: userSession,
-                                         analytics: analytics,
-                                         userIndicatorController: UserIndicatorControllerMock.default,
+                                         analytics: AnalyticsServiceMock(.init()),
+                                         userIndicatorController: UserIndicatorControllerMock(),
                                          appSettings: appSettings)
     }()
     

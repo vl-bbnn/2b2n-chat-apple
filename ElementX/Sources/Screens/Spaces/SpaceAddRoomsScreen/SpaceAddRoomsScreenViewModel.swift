@@ -25,7 +25,7 @@ class SpaceAddRoomsScreenViewModel: SpaceAddRoomsScreenViewModelType, SpaceAddRo
     var actions: AnyPublisher<SpaceAddRoomsScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(spaceRoomListProxy: SpaceRoomListProxyProtocol,
          userSession: UserSessionProtocol,
          roomSummaryProvider: RoomSummaryProviderProtocol,
@@ -49,10 +49,13 @@ class SpaceAddRoomsScreenViewModel: SpaceAddRoomsScreenViewModelType, SpaceAddRo
             let existingRooms = spaceRoomListProxy.spaceRoomsPublisher.value
             suggestedRooms = await userSession.clientProxy
                 .recentlyVisitedRooms { roomProxy in
-                    !roomProxy.infoPublisher.value.isDirect
-                        && !roomProxy.infoPublisher.value.isSpace
-                        && roomProxy.infoPublisher.value.membership == .joined
-                        && !existingRooms.contains { $0.id == roomProxy.id }
+                    // The filter is Sendable for the mock's sake but the client proxy always calls it on the main actor.
+                    MainActor.assumeIsolated {
+                        !roomProxy.infoPublisher.value.isDirect
+                            && !roomProxy.infoPublisher.value.isSpace
+                            && roomProxy.infoPublisher.value.membership == .joined
+                            && !existingRooms.contains { $0.id == roomProxy.id }
+                    }
                 }
                 .map { .init(roomProxy: $0) }
             
@@ -167,7 +170,7 @@ class SpaceAddRoomsScreenViewModel: SpaceAddRoomsScreenViewModelType, SpaceAddRo
     private var savingIndicatorID: String {
         "\(Self.self)-Saving"
     }
-
+    
     private var failureIndicatorID: String {
         "\(Self.self)-Failure"
     }
@@ -187,6 +190,6 @@ class SpaceAddRoomsScreenViewModel: SpaceAddRoomsScreenViewModelType, SpaceAddRo
         userIndicatorController.submitIndicator(UserIndicator(id: failureIndicatorID,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }

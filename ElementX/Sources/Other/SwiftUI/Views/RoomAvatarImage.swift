@@ -13,7 +13,7 @@ enum RoomAvatar: Equatable {
     /// An avatar generated from a Room's details.
     case room(id: String, name: String?, avatarURL: URL?)
     /// An avatar generated from a collection of room heroes.
-    case heroes([UserProfileProxy])
+    case heroes([UserProfile])
     /// An avatar generated from a Space's details.
     case space(id: String, name: String?, avatarURL: URL?)
     /// A static avatar for a tombstoned room.
@@ -24,7 +24,7 @@ enum RoomAvatar: Equatable {
         case let .room(id, name, _):
             .room(id: id, name: name, avatarURL: nil)
         case let .heroes(users):
-            .heroes(users.map { .init(userID: $0.userID, displayName: $0.displayName, avatarURL: nil) })
+            .heroes(users.map { .init(userID: $0.id, displayName: $0.displayName, avatarURL: nil) })
         case .space(let id, let name, _):
             .space(id: id, name: name, avatarURL: nil)
         case .tombstoned:
@@ -76,7 +76,7 @@ struct RoomAvatarImage: View {
                 ZStack {
                     LoadableAvatarImage(url: users[0].avatarURL,
                                         name: users[0].displayName,
-                                        contentID: users[0].userID,
+                                        contentID: users[0].id,
                                         avatarSize: avatarSize,
                                         mediaProvider: mediaProvider,
                                         onTap: onAvatarTap)
@@ -84,7 +84,7 @@ struct RoomAvatarImage: View {
                     
                     LoadableAvatarImage(url: users[1].avatarURL,
                                         name: users[1].displayName,
-                                        contentID: users[1].userID,
+                                        contentID: users[1].id,
                                         avatarSize: avatarSize,
                                         mediaProvider: mediaProvider,
                                         onTap: onAvatarTap)
@@ -107,7 +107,7 @@ struct RoomAvatarImage: View {
             } else {
                 LoadableAvatarImage(url: users[0].avatarURL,
                                     name: users[0].displayName,
-                                    contentID: users[0].userID,
+                                    contentID: users[0].id,
                                     avatarSize: avatarSize,
                                     mediaProvider: mediaProvider,
                                     onTap: onAvatarTap)
@@ -134,27 +134,27 @@ struct RoomAvatarImage_Previews: PreviewProvider, TestablePreview {
                                               name: "Room",
                                               avatarURL: nil),
                                 avatarSize: .room(on: .chats),
-                                mediaProvider: MediaProviderMock(configuration: .init()))
+                                mediaProvider: MediaProviderMock(.init()))
                 
                 RoomAvatarImage(avatar: .room(id: "!2:server.com",
                                               name: "Room",
                                               avatarURL: .mockMXCAvatar),
                                 avatarSize: .room(on: .chats),
-                                mediaProvider: MediaProviderMock(configuration: .init()))
+                                mediaProvider: MediaProviderMock(.init()))
                 
                 RoomAvatarImage(avatar: .space(id: "!space:server.com",
                                                name: "Room",
                                                avatarURL: nil),
                                 avatarSize: .room(on: .chats),
-                                mediaProvider: MediaProviderMock(configuration: .init()))
+                                mediaProvider: MediaProviderMock(.init()))
                 
                 RoomAvatarImage(avatar: .space(id: "!otherspace:server.com",
                                                name: "Room",
                                                avatarURL: .mockMXCAvatar),
                                 avatarSize: .room(on: .chats),
-                                mediaProvider: MediaProviderMock(configuration: .init()))
+                                mediaProvider: MediaProviderMock(.init()))
                 
-                RoomAvatarImage(avatar: .tombstoned, avatarSize: .room(on: .chats), mediaProvider: MediaProviderMock(configuration: .init()))
+                RoomAvatarImage(avatar: .tombstoned, avatarSize: .room(on: .chats), mediaProvider: MediaProviderMock(.init()))
             }
             
             HStack(spacing: 12) {
@@ -162,18 +162,18 @@ struct RoomAvatarImage_Previews: PreviewProvider, TestablePreview {
                                                        displayName: "User",
                                                        avatarURL: nil)]),
                 avatarSize: .room(on: .chats),
-                mediaProvider: MediaProviderMock(configuration: .init()))
+                mediaProvider: MediaProviderMock(.init()))
                 
                 RoomAvatarImage(avatar: .heroes([.init(userID: "@user:server.com",
                                                        displayName: "User",
                                                        avatarURL: .mockMXCAvatar)]),
                 avatarSize: .room(on: .chats),
-                mediaProvider: MediaProviderMock(configuration: .init()))
+                mediaProvider: MediaProviderMock(.init()))
                 
                 RoomAvatarImage(avatar: .heroes([.init(userID: "@alice:server.com", displayName: "Alice", avatarURL: nil),
                                                  .init(userID: "@bob:server.net", displayName: "Bob", avatarURL: nil)]),
                                 avatarSize: .room(on: .chats),
-                                mediaProvider: MediaProviderMock(configuration: .init()))
+                                mediaProvider: MediaProviderMock(.init()))
             }
         }
     }

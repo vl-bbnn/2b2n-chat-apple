@@ -20,23 +20,32 @@ class RoomThreadListProxy: RoomThreadListServiceProxyProtocol {
     }
     
     private var paginationStateHandle: TaskHandle?
-    let paginationStatePublisher: CurrentValuePublisher<RoomThreadListPaginationState, Never>
+    private let paginationStateSubject: CurrentValueSubject<RoomThreadListPaginationState, Never>
+    var paginationStatePublisher: CurrentValuePublisher<RoomThreadListPaginationState, Never> {
+        paginationStateSubject.asCurrentValuePublisher()
+    }
     
     init(threadListService: ThreadListServiceProtocol, eventStringBuilder: RoomEventStringBuilder, paginationToken: String? = nil) {
         self.threadListService = threadListService
         self.eventStringBuilder = eventStringBuilder
         
-        let paginationStateSubject = CurrentValueSubject<RoomThreadListPaginationState, Never>(.init(sdkState: threadListService.paginationState()))
-        paginationStatePublisher = paginationStateSubject.asCurrentValuePublisher()
+        paginationStateSubject = CurrentValueSubject<RoomThreadListPaginationState, Never>(.init(sdkState: threadListService.paginationState()))
         
-        paginationStateHandle = threadListService.subscribeToPaginationStateUpdates(listener: SDKListener { state in
-            paginationStateSubject.send(.init(sdkState: state))
+        // The listeners are called by the SDK from arbitrary threads, hop to the
+        // main actor where this proxy lives.
+        
+        paginationStateHandle = threadListService.subscribeToPaginationStateUpdates(listener: SDKListener { [weak self] state in
+            Task { @MainActor in
+                self?.paginationStateSubject.send(.init(sdkState: state))
+            }
         })
         
         updateItems()
         
         itemUpdatesHandle = self.threadListService.subscribeToItemsUpdates(listener: SDKListener { [weak self] _ in
-            self?.updateItems()
+            Task { @MainActor in
+                self?.updateItems()
+            }
         })
     }
     
@@ -76,7 +85,7 @@ class RoomThreadListProxy: RoomThreadListServiceProxyProtocol {
         
         let sender = TimelineItemSender(senderID: threadListItemEvent.sender, senderProfile: threadListItemEvent.senderProfile)
         let timestamp = Date(timeIntervalSince1970: TimeInterval(threadListItemEvent.timestamp / 1000))
-                
+        
         let message: AttributedString? = if let content = threadListItemEvent.content {
             eventStringBuilder.buildAttributedString(for: content,
                                                      sender: sender,

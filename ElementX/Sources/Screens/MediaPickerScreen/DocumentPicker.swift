@@ -30,7 +30,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
         self.userIndicatorController = userIndicatorController
         self.callback = callback
     }
-
+    
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: contentTypes)
         documentPicker.delegate = context.coordinator
@@ -88,6 +88,11 @@ struct DocumentPicker: UIViewControllerRepresentable {
                 } catch {
                     documentPicker.callback(.error(error))
                 }
+            }
+            
+            guard !selectedURLs.isEmpty else {
+                // Every picked document failed to copy; each failure was already surfaced via .error.
+                return
             }
             
             documentPicker.callback(.selectedMediaAtURLs(selectedURLs))

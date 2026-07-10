@@ -18,7 +18,7 @@ struct BugReportScreen: View {
     var canSendLogFiles: Bool {
         context.viewState.canSendLogFiles
     }
-
+    
     var photosPickerTitle: String {
         context.viewState.screenshot == nil ? L10n.screenBugReportAttachScreenshot : L10n.screenBugReportEditScreenshot
     }
@@ -82,7 +82,7 @@ struct BugReportScreen: View {
             }
         }
     }
-
+    
     private var canContactSection: some View {
         Section {
             ListRow(label: .plain(title: L10n.screenBugReportContactMeTitle),
@@ -93,14 +93,17 @@ struct BugReportScreen: View {
                 .compoundListSectionFooter()
         }
     }
-
+    
     private var attachScreenshotSection: some View {
         Section {
             ListRow(kind: .custom {
                 PhotosPicker(selection: $selectedScreenshot,
                              matching: .screenshots,
                              photoLibrary: .shared()) {
-                    ListRowLabel.plain(title: photosPickerTitle)
+                    // The label builder isn't isolated in SwiftUI's signature but is only ever called on the main actor.
+                    MainActor.assumeIsolated {
+                        ListRowLabel.plain(title: photosPickerTitle)
+                    }
                 }
             })
             .accessibilityIdentifier(A11yIdentifiers.bugReportScreen.attachScreenshot)

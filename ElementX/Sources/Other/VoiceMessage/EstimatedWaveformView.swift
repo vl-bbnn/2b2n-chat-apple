@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-struct EstimatedWaveform: Equatable, Hashable {
+nonisolated struct EstimatedWaveform: Equatable, Hashable {
     static let dataRange: ClosedRange<UInt16> = 0...1024
     let data: [UInt16]
 }
@@ -20,7 +20,7 @@ extension EstimatedWaveform {
         guard maxSamplesCount > 0 else {
             return []
         }
-
+        
         // Filter the data to keep only the expected number of samples
         let result: [UInt16]
         if data.count > maxSamplesCount {
@@ -32,13 +32,13 @@ extension EstimatedWaveform {
         } else {
             result = data
         }
-
+        
         // Normalize the sample in the allowed range
         return result.map { Float($0) / Float(Self.dataRange.upperBound) }
     }
 }
 
-extension EstimatedWaveform {
+nonisolated extension EstimatedWaveform {
     static let mockWaveform = EstimatedWaveform(data: [0, 0, 0, 3, 3, 127, 400, 266, 126, 122, 373, 251, 45, 112,
                                                        334, 205, 99, 138, 397, 354, 125, 361, 199, 51,
                                                        294, 131, 19, 2, 3, 3, 1, 2, 0, 0,

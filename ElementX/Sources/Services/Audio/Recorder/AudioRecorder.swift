@@ -12,14 +12,16 @@ import Combine
 import Foundation
 import UIKit
 
-private enum InternalAudioRecorderState: Equatable {
+private nonisolated enum InternalAudioRecorderState: Equatable {
     case recording
     case suspended
     case stopped
     case error(AudioRecorderError)
 }
 
-class AudioRecorder: AudioRecorderProtocol {
+/// All mutable state is confined to the serial `dispatchQueue` (with the realtime tap
+/// reading converter/file that are set up before the engine starts), hence `@unchecked`.
+nonisolated class AudioRecorder: AudioRecorderProtocol, @unchecked Sendable {
     private let audioSession: AudioSessionProtocol
     private var audioEngine: AVAudioEngine?
     private var mixer: AVAudioMixerNode?
@@ -37,7 +39,7 @@ class AudioRecorder: AudioRecorderProtocol {
     private let maximumRecordingTime: TimeInterval = 1800 // 30 minutes
     private let silenceThreshold: Float = -50.0
     private var meterLevel: Float = 0
-
+    
     private(set) var audioFileURL: URL?
     var currentTime: TimeInterval = .zero
     var isRecording: Bool {
@@ -94,7 +96,7 @@ class AudioRecorder: AudioRecorderProtocol {
             }
         }
     }
-        
+    
     func averagePower() -> Float {
         meterLevel
     }
@@ -143,7 +145,7 @@ class AudioRecorder: AudioRecorderProtocol {
         return try AVAudioFile(forWriting: recordingURL, settings: settings)
     }
     
-    private func startRecording(audioFileURL: URL, completion: @escaping (Result<Void, AudioRecorderError>) -> Void) {
+    private func startRecording(audioFileURL: URL, completion: @escaping @Sendable (Result<Void, AudioRecorderError>) -> Void) {
         dispatchQueue.async { [weak self] in
             guard let self, !self.stopped else {
                 completion(.failure(.recordingCancelled))
@@ -161,10 +163,18 @@ class AudioRecorder: AudioRecorderProtocol {
             // Initialize a new audio engine
             let audioEngine = AVAudioEngine()
             self.audioEngine = audioEngine
-
+            
             let inputNode = audioEngine.inputNode
             let inputFormat = inputNode.outputFormat(forBus: 0)
-            let hardwareSampleRate = audioEngine.inputNode.outputFormat(forBus: 0).sampleRate
+            let hardwareSampleRate = inputFormat.sampleRate
+            
+            // The input format can be invalid (e.g. a zero sample rate) when no input route is
+            // available, which would crash AVAudioEngine when connecting nodes or installing the tap.
+            guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+                MXLog.error("Invalid input audio format, can't record: \(inputFormat)")
+                completion(.failure(.unsupportedAudioFormat))
+                return
+            }
             
             // Define a recording audio format. Force the sample rate to 48000 to ensure OGGEncoder won't crash
             guard let recordingFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1) else {
@@ -204,12 +214,12 @@ class AudioRecorder: AudioRecorderProtocol {
             } else {
                 audioConverter = nil
             }
-
+            
             // Install tap to process audio buffers coming from the mixer
             mixer.installTap(onBus: 0, bufferSize: 1024, format: mixerFormat) { [weak self] buffer, _ in
                 self?.processAudioBuffer(buffer)
             }
-
+            
             do {
                 try audioEngine.start()
                 completion(.success(()))
@@ -220,7 +230,7 @@ class AudioRecorder: AudioRecorderProtocol {
         }
     }
     
-    private func stopRecording(completion: @escaping () -> Void) {
+    private func stopRecording(completion: @escaping @Sendable () -> Void) {
         dispatchQueue.async { [weak self] in
             defer {
                 completion()
@@ -247,7 +257,7 @@ class AudioRecorder: AudioRecorderProtocol {
         releaseAudioSession()
     }
     
-    private func deleteRecording(completion: @escaping () -> Void) {
+    private func deleteRecording(completion: @escaping @Sendable () -> Void) {
         dispatchQueue.async { [weak self] in
             defer {
                 completion()
@@ -287,9 +297,12 @@ class AudioRecorder: AudioRecorderProtocol {
             }
             
             // Convert the buffer
+            // The block type is `@Sendable` but `convert(to:error:withInputFrom:)`
+            // invokes it synchronously on this same thread, the buffer never crosses.
+            nonisolated(unsafe) let inputBufferForConversion = buffer
             let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
                 outStatus.pointee = AVAudioConverterInputStatus.haveData
-                return buffer
+                return inputBufferForConversion
             }
             
             var conversionError: NSError?
@@ -304,7 +317,7 @@ class AudioRecorder: AudioRecorderProtocol {
         // Write the buffer into the audio file
         do {
             try audioFile.write(from: inputBuffer)
-
+            
             // Compute the sample value for the waveform
             updateMeterLevel(inputBuffer)
             
@@ -366,10 +379,10 @@ class AudioRecorder: AudioRecorderProtocol {
             setInternalState(.suspended)
         case .ended:
             MXLog.info("Interruption ended: \(notification)")
-
+            
             guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-                        
+            
             if options.contains(.shouldResume) {
                 do {
                     try audioEngine?.start()
@@ -413,7 +426,7 @@ class AudioRecorder: AudioRecorderProtocol {
                 actionsSubject.send(.didStopRecording)
             case .error(let error):
                 cleanupAudioEngine()
-
+                
                 actionsSubject.send(.didFailWithError(error: error))
             }
         }

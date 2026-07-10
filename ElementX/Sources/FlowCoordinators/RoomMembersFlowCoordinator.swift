@@ -42,7 +42,7 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
         case start
         
         case presentRoomMembersList
-
+        
         case presentRoomMemberDetails(userID: String)
         case dismissedRoomMemberDetails
         
@@ -123,7 +123,7 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
         case .accountProvisioningLink, .oAuthCallback,
              .roomList, .room, .roomDetails, .event,
              .userProfile, .call, .settings, .chatBackupSettings,
-             .share, .transferOwnership, .thread, .globalSearch:
+             .share, .transferOwnership, .thread, .search:
             break
         }
     }
@@ -178,6 +178,9 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (_, .presentRoomMemberDetails, .roomMemberDetails(let userID, _)):
                 presentRoomMemberDetails(userID: userID, animated: animated)
+                
+            case (.roomMemberDetails, .dismissedRoomMemberDetails, .initial):
+                actionsSubject.send(.finished)
             case (.roomMemberDetails, .dismissedRoomMemberDetails, .roomMembersList):
                 break
                 
@@ -188,6 +191,9 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (.roomMemberDetails, .presentUserProfile, .userProfile(let userID, _)):
                 replaceRoomMemberDetailsWithUserProfile(userID: userID)
+                
+            case (.userProfile, .dismissedUserProfile, .initial):
+                actionsSubject.send(.finished)
             case (.userProfile, .dismissedUserProfile, _):
                 break
                 
@@ -246,15 +252,9 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
             }
         }
         .store(in: &cancellables)
-
+        
         navigationStackCoordinator.push(coordinator, animated: animated) { [weak self] in
-            guard let self else { return }
-            if case let .roomMemberDetails(_, previousState) = stateMachine.state,
-               previousState == .initial {
-                actionsSubject.send(.finished)
-            } else {
-                stateMachine.tryEvent(.dismissedRoomMemberDetails)
-            }
+            self?.stateMachine.tryEvent(.dismissedRoomMemberDetails)
         }
     }
     

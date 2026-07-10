@@ -8,12 +8,12 @@ struct IntegrationTests: AsyncParsableCommand {
                                                     Deletes old log files, runs integration tests, validates that logs are set
                                                     to the trace level and don't contain private messages, then collects results.
                                                     """)
-
+    
     @Option(help: "Device name for tests.")
     var device = "iPhone 17"
     
     @Option(help: "iOS version for the simulator.")
-    var osVersion = "26.4.1"
+    var osVersion = CI.defaultOSVersion
     
     func run() async throws {
         // Delete old log files

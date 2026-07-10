@@ -11,7 +11,7 @@ import SwiftUI
 
 struct SecureBackupLogoutConfirmationScreenCoordinatorParameters {
     let secureBackupController: SecureBackupControllerProtocol
-    let homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>
+    let homeserverReachabilityPublisher: CurrentValuePublisher<HomeserverReachability, Never>
 }
 
 enum SecureBackupLogoutConfirmationScreenCoordinatorAction {
@@ -51,7 +51,7 @@ final class SecureBackupLogoutConfirmationScreenCoordinator: CoordinatorProtocol
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(SecureBackupLogoutConfirmationScreen(context: viewModel.context))
     }

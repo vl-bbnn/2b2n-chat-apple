@@ -10,14 +10,14 @@ import Combine
 import Kingfisher
 import UIKit
 
-struct MediaProvider: MediaProviderProtocol {
+nonisolated struct MediaProvider: MediaProviderProtocol {
     private let mediaLoader: MediaLoaderProtocol
     private let imageCache: Kingfisher.ImageCache
-    private let homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>?
+    private let homeserverReachabilityPublisher: CurrentValuePublisher<HomeserverReachability, Never>?
     
     init(mediaLoader: MediaLoaderProtocol,
          imageCache: Kingfisher.ImageCache,
-         homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>?) {
+         homeserverReachabilityPublisher: CurrentValuePublisher<HomeserverReachability, Never>?) {
         self.mediaLoader = mediaLoader
         self.imageCache = imageCache
         self.homeserverReachabilityPublisher = homeserverReachabilityPublisher
@@ -44,7 +44,7 @@ struct MediaProvider: MediaProviderProtocol {
            let image = cacheResult.image {
             return .success(image)
         }
-
+        
         do {
             let imageData: Data
             if let size {
@@ -52,14 +52,14 @@ struct MediaProvider: MediaProviderProtocol {
             } else {
                 imageData = try await mediaLoader.loadMediaContentForSource(source)
             }
-
+            
             guard let image = UIImage(data: imageData) else {
                 MXLog.error("Invalid image data")
                 return .failure(.invalidImageData)
             }
-
+            
             try await imageCache.store(image, forKey: cacheKey)
-
+            
             return .success(image)
         } catch {
             MXLog.error("Failed retrieving image with error: \(error)")

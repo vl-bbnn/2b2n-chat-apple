@@ -9,11 +9,11 @@
 @testable import Kingfisher
 import UIKit
 
-class MockImageCache: ImageCache, @unchecked Sendable {
+nonisolated class MockImageCache: ImageCache, @unchecked Sendable {
     var retrievedImagesInMemory = [String: UIImage]()
     var retrievedImages = [String: UIImage]()
     var storedImages = [String: UIImage]()
-
+    
     override func retrieveImageInMemoryCache(forKey key: String, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
         retrievedImagesInMemory[key]
     }

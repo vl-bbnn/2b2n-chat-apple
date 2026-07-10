@@ -11,17 +11,17 @@ import Combine
 import Foundation
 import Testing
 
+@MainActor
 final class BugReportServiceTests {
     var appSettings: AppSettings!
     var bugReportService: BugReportServiceProtocol!
     
     init() throws {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
+        appSettings = AppSettings.volatile()
         appSettings.bugReportRageshakeURL.reset()
         
         let bugReportServiceMock = BugReportServiceMock()
-        bugReportServiceMock.underlyingCrashedLastRun = false
+        bugReportServiceMock.crashedLastRun = false
         bugReportServiceMock.submitBugReportProgressListenerReturnValue = .success(SubmitBugReportResponse(reportURL: "https://www.example.com/123"))
         bugReportService = bugReportServiceMock
     }
@@ -77,7 +77,7 @@ final class BugReportServiceTests {
         #expect(!service.crashedLastRun)
     }
     
-    @Test @MainActor
+    @Test
     func submitBugReportWithRealService() async throws {
         let urlPublisher: CurrentValueSubject<RageshakeConfiguration, Never> = .init(.url("https://example.com/submit"))
         let service = BugReportService(rageshakeURLPublisher: urlPublisher.asCurrentValuePublisher(),
@@ -145,7 +145,7 @@ final class BugReportServiceTests {
     }
 }
 
-private class MockURLProtocol: URLProtocol {
+private nonisolated class MockURLProtocol: URLProtocol {
     override func startLoading() {
         guard let url = request.url else { return }
         let reportURL = url.deletingLastPathComponent().appending(path: "123")

@@ -9,11 +9,11 @@
 import Foundation
 import UserNotifications
 
-extension UNNotificationContent {
+nonisolated extension UNNotificationContent {
     @objc var receiverID: String? {
         userInfo[NotificationConstants.UserInfoKey.receiverIdentifier] as? String
     }
-
+    
     @objc var roomID: String? {
         userInfo[NotificationConstants.UserInfoKey.roomIdentifier] as? String
     }
@@ -21,7 +21,7 @@ extension UNNotificationContent {
     @objc var eventID: String? {
         userInfo[NotificationConstants.UserInfoKey.eventIdentifier] as? String
     }
-
+    
     @objc var pusherNotificationClientIdentifier: String? {
         userInfo[NotificationConstants.UserInfoKey.pusherNotificationClientIdentifier] as? String
     }
@@ -35,7 +35,7 @@ extension UNNotificationContent {
     }
 }
 
-extension UNMutableNotificationContent {
+nonisolated extension UNMutableNotificationContent {
     override var receiverID: String? {
         get {
             userInfo[NotificationConstants.UserInfoKey.receiverIdentifier] as? String
