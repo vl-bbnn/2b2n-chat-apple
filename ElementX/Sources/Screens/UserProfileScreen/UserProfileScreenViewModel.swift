@@ -15,7 +15,7 @@ typealias UserProfileScreenViewModelType = StateStoreViewModelV2<UserProfileScre
 class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScreenViewModelProtocol {
     private let userSession: UserSessionProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     private let appSettings: AppSettings
     
     private var actionsSubject: PassthroughSubject<UserProfileScreenViewModelAction, Never> = .init()
@@ -27,7 +27,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
          isPresentedModally: Bool,
          userSession: UserSessionProtocol,
          userIndicatorController: UserIndicatorControllerProtocol,
-         analytics: AnalyticsService,
+         analytics: AnalyticsServiceProtocol,
          appSettings: AppSettings) {
         self.userSession = userSession
         self.userIndicatorController = userIndicatorController
@@ -71,19 +71,30 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
             actionsSubject.send(.dismiss)
         }
     }
-
+    
     // MARK: - Private
     
+    // The proxies aren't Sendable, fetch through these helpers so that
+    // they never leave the main actor when running calls in parallel.
+    
+    private func fetchProfile() async -> Result<UserProfile, ClientProxyError> {
+        await userSession.clientProxy.profile(for: state.userID)
+    }
+    
+    private func fetchUserIdentity() async -> Result<UserIdentityProxyProtocol?, ClientProxyError> {
+        await userSession.clientProxy.userIdentity(for: state.userID, fallBackToServer: true)
+    }
+    
     private func loadProfile() async {
-        async let profileResult = userSession.clientProxy.profile(for: state.userID)
-        async let identityResult = userSession.clientProxy.userIdentity(for: state.userID, fallBackToServer: true)
+        async let profileResult = fetchProfile()
+        async let identityResult = fetchUserIdentity()
         
         switch await profileResult {
         case .success(let userProfile):
             state.userProfile = userProfile
             state.permalink = (try? matrixToUserPermalink(userId: state.userID)).flatMap(URL.init(string:))
             
-            switch userSession.clientProxy.directRoomForUserID(userProfile.userID) {
+            switch userSession.clientProxy.directRoomForUserID(userProfile.id) {
             case .success(let roomID):
                 state.dmRoomID = roomID
             case .failure:
@@ -122,13 +133,13 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         showLoadingIndicator(allowsInteraction: false)
         defer { hideLoadingIndicator() }
         
-        switch userSession.clientProxy.directRoomForUserID(userProfile.userID) {
+        switch userSession.clientProxy.directRoomForUserID(userProfile.id) {
         case .success(let roomID):
             if let roomID {
                 actionsSubject.send(.openDirectChat(roomID: roomID))
             } else {
                 Task {
-                    let isUnknown = if case let .success(identity) = await userSession.clientProxy.userIdentity(for: userProfile.userID, fallBackToServer: false) {
+                    let isUnknown = if case let .success(identity) = await userSession.clientProxy.userIdentity(for: userProfile.id, fallBackToServer: false) {
                         identity == nil
                     } else {
                         true
@@ -147,7 +158,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         showLoadingIndicator(allowsInteraction: false)
         defer { hideLoadingIndicator() }
         
-        switch await userSession.clientProxy.createDirectRoom(with: userProfile.userID, expectedRoomName: userProfile.displayName) {
+        switch await userSession.clientProxy.createDirectRoom(with: userProfile.id, expectedRoomName: userProfile.displayName) {
         case .success(let roomID):
             analytics.trackCreatedRoom(isDM: true)
             actionsSubject.send(.openDirectChat(roomID: roomID))
@@ -169,7 +180,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
     private var loadingIndicatorIdentifier: String {
         "\(Self.self)-Loading"
     }
-
+    
     private var statusIndicatorIdentifier: String {
         "\(Self.self)-Status"
     }
@@ -190,6 +201,6 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         userIndicatorController.submitIndicator(UserIndicator(id: statusIndicatorIdentifier,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }

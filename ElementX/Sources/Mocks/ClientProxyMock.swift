@@ -14,6 +14,7 @@ struct ClientProxyMockConfiguration {
     var homeserver = ""
     var userIDServerName: String?
     var userID: String = RoomMemberProxyMock.mockMe.userID
+    var displayName: String? = "User display name"
     var deviceID: String?
     var roomSummaryProvider: RoomSummaryProviderProtocol = RoomSummaryProviderMock(.init())
     var spaceServiceConfiguration: SpaceServiceProxyMock.Configuration = .init()
@@ -64,8 +65,7 @@ extension ClientProxyMock {
         verificationStatePublisher = .init(.unknown)
         homeserverReachabilityPublisher = .init(.reachable)
         
-        userAvatarURLPublisher = .init(nil)
-        userDisplayNamePublisher = .init("User display name")
+        userProfilePublisher = .init(UserProfile(userID: configuration.userID, displayName: configuration.displayName))
         
         ignoredUsersPublisher = .init([RoomMemberProxyMock].allMembers.map(\.userID))
         
@@ -85,9 +85,8 @@ extension ClientProxyMock {
         }
         joinRoomAliasReturnValue = .success(())
         uploadMediaReturnValue = .failure(.sdkError(ClientProxyMockError.generic))
-        loadUserDisplayNameReturnValue = .failure(.sdkError(ClientProxyMockError.generic))
+        loadUserProfileReturnValue = .success(())
         setUserDisplayNameReturnValue = .failure(.sdkError(ClientProxyMockError.generic))
-        loadUserAvatarURLReturnValue = .success(())
         setUserAvatarMediaReturnValue = .success(())
         removeUserAvatarReturnValue = .success(())
         isAliasAvailableReturnValue = .success(true)
@@ -122,18 +121,18 @@ extension ClientProxyMock {
                 let joinedRoomIDs = configuration.overrides.joinedRoomIDs
                 switch room.joinRequestType {
                 case .invite where !joinedRoomIDs.contains(room.id):
-                    let roomProxy = await InvitedRoomProxyMock(.init(id: room.id, name: room.name, isSpace: room.isSpace))
+                    let roomProxy = InvitedRoomProxyMock(.init(id: room.id, name: room.name, isSpace: room.isSpace))
                     return .invited(roomProxy)
                 case .knock where !joinedRoomIDs.contains(room.id):
-                    let roomProxy = await KnockedRoomProxyMock(.init(id: room.id, name: room.name))
+                    let roomProxy = KnockedRoomProxyMock(.init(id: room.id, name: room.name))
                     return .knocked(roomProxy)
                 default:
-                    let roomProxy = await JoinedRoomProxyMock(.init(id: room.id, name: room.name, isSpace: room.isSpace, members: configuration.defaultRoomMembers))
+                    let roomProxy = JoinedRoomProxyMock(.init(id: room.id, name: room.name, isSpace: room.isSpace, members: configuration.defaultRoomMembers))
                     roomProxy.loadOrFetchEventDetailsForReturnValue = .success(TimelineEventSDKMock())
                     return .joined(roomProxy)
                 }
             } else if let spaceServiceRoom = configuration.spaceServiceConfiguration.topLevelSpaces.first(where: { $0.id == identifier }) {
-                let roomProxy = await JoinedRoomProxyMock(.init(id: spaceServiceRoom.id, name: spaceServiceRoom.name, isSpace: spaceServiceRoom.isSpace, members: configuration.defaultRoomMembers))
+                let roomProxy = JoinedRoomProxyMock(.init(id: spaceServiceRoom.id, name: spaceServiceRoom.name, isSpace: spaceServiceRoom.isSpace, members: configuration.defaultRoomMembers))
                 roomProxy.loadOrFetchEventDetailsForReturnValue = .success(TimelineEventSDKMock())
                 return .joined(roomProxy)
             } else {
@@ -151,15 +150,15 @@ extension ClientProxyMock {
             }
         }
         
-        userIdentityForFallBackToServerReturnValue = .success(UserIdentityProxyMock(configuration: .init()))
+        userIdentityForFallBackToServerReturnValue = .success(UserIdentityProxyMock(.init()))
         
         underlyingIsReportRoomSupported = true
         underlyingIsLiveKitRTCSupported = true
         underlyingIsLoginWithQRCodeSupported = true
         
-        underlyingTimelineMediaVisibilityPublisher = CurrentValueSubject<TimelineMediaVisibility, Never>(configuration.timelineMediaVisibility).asCurrentValuePublisher()
-        underlyingHideInviteAvatarsPublisher = CurrentValueSubject<Bool, Never>(configuration.hideInviteAvatars).asCurrentValuePublisher()
-
+        timelineMediaVisibilityPublisher = CurrentValueSubject<TimelineMediaVisibility, Never>(configuration.timelineMediaVisibility).asCurrentValuePublisher()
+        hideInviteAvatarsPublisher = CurrentValueSubject<Bool, Never>(configuration.hideInviteAvatars).asCurrentValuePublisher()
+        
         liveLocationOwnInfoUpdatesPublisher = PassthroughSubject<LiveLocationOwnInfoUpdate, Never>().eraseToAnyPublisher()
         
         underlyingMaxMediaUploadSize = .success(configuration.maxMediaUploadSize)

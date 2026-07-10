@@ -53,10 +53,10 @@ struct ServerSelectionScreen: View {
     var serverForm: some View {
         VStack(alignment: .leading, spacing: 24) {
             TextField(L10n.commonServerUrl, text: $context.homeserverAddress)
-                .textFieldStyle(.element(labelText: Text(L10n.screenChangeServerFormHeader),
-                                         footerText: Text(context.viewState.footerMessage),
-                                         state: context.viewState.isShowingFooterError ? .error : .default,
-                                         accessibilityIdentifier: A11yIdentifiers.changeServerScreen.server))
+                .textFieldStyle(.compound(labelText: Text(L10n.screenChangeServerFormHeader),
+                                          footerText: Text(context.viewState.footerMessage),
+                                          state: context.viewState.isShowingFooterError ? .error : .default,
+                                          accessibilityIdentifier: A11yIdentifiers.changeServerScreen.server))
                 .keyboardType(.URL)
                 .autocapitalization(.none)
                 .disableAutocorrection(true)
@@ -91,6 +91,7 @@ struct ServerSelectionScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct ServerSelection_Previews: PreviewProvider, TestablePreview {
     static let matrixViewModel = makeViewModel(for: "https://matrix.org")
     static let emptyViewModel = makeViewModel(for: "")
@@ -116,8 +117,8 @@ struct ServerSelection_Previews: PreviewProvider, TestablePreview {
         
         let viewModel = ServerSelectionScreenViewModel(authenticationService: authenticationService,
                                                        authenticationFlow: .login,
-                                                       appSettings: AppSettings(),
-                                                       userIndicatorController: UserIndicatorControllerMock.default)
+                                                       appSettings: .volatile(),
+                                                       userIndicatorController: UserIndicatorControllerMock())
         viewModel.context.homeserverAddress = homeserverAddress
         if homeserverAddress == "thisisbad" {
             viewModel.context.send(viewAction: .confirm)

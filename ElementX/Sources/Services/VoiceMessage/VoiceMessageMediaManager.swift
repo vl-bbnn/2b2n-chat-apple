@@ -36,8 +36,9 @@ class VoiceMessageMediaManager: VoiceMessageMediaManagerProtocol {
         self.audioConverter = audioConverter
         self.processingQueue = processingQueue
     }
-
+    
     deinit {
+        // The cache is nonisolated and the proxies it uses are Sendable, safe from any context.
         voiceMessageCache.clearCache()
     }
     
@@ -50,7 +51,7 @@ class VoiceMessageMediaManager: VoiceMessageMediaManagerProtocol {
         if let fileURL = voiceMessageCache.fileURL(for: source) {
             return fileURL
         }
-                
+        
         // Otherwise, load the file from source
         guard case .success(let fileHandle) = await mediaProvider.loadFileFromSource(source, filename: body) else {
             throw MediaProviderError.failedRetrievingFile
@@ -61,14 +62,14 @@ class VoiceMessageMediaManager: VoiceMessageMediaManagerProtocol {
             if let fileURL = voiceMessageCache.fileURL(for: source) {
                 return fileURL
             }
-
+            
             // Convert from ogg
             guard let url = fileHandle.url else {
                 throw VoiceMessageMediaManagerError.missingURL
             }
             let convertedFileURL = URL.temporaryDirectory.appendingPathComponent(url.deletingPathExtension().lastPathComponent).appendingPathExtension(AudioConverterPreferredFileExtension.mpeg4aac.rawValue)
             try audioConverter.convertToMPEG4AAC(sourceURL: url, destinationURL: convertedFileURL)
-
+            
             // Cache the file and return the url
             let result = voiceMessageCache.cache(mediaSource: source, using: convertedFileURL, move: true)
             switch result {
@@ -82,7 +83,7 @@ class VoiceMessageMediaManager: VoiceMessageMediaManagerProtocol {
     
     // MARK: - Private
     
-    private func enqueueVoiceMessageConversionRequest(forSource source: MediaSourceProxy, operation: @escaping () throws -> URL) async throws -> URL {
+    private func enqueueVoiceMessageConversionRequest(forSource source: MediaSourceProxy, operation: @escaping @Sendable () throws -> URL) async throws -> URL {
         if let conversionRequests = conversionRequests[source] {
             return try await withCheckedThrowingContinuation { continuation in
                 conversionRequests.continuations.append(continuation)

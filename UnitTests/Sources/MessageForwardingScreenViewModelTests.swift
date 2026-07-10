@@ -8,13 +8,14 @@
 
 import Combine
 @testable import ElementX
+import MatrixRustSDKMocks
 import Testing
 
 @MainActor
 struct MessageForwardingScreenViewModelTests {
     let forwardingItem = MessageForwardingItem(id: .event(uniqueID: .init("t1"), eventOrTransactionID: .eventID("t1")),
                                                roomID: "1",
-                                               content: .init(noHandle: .init()))
+                                               content: RoomMessageEventContentWithoutRelationSDKMock())
     var viewModel: MessageForwardingScreenViewModelProtocol!
     var context: MessageForwardingScreenViewModelType.Context!
     
@@ -31,13 +32,13 @@ struct MessageForwardingScreenViewModelTests {
     
     @Test
     func initialState() {
-        #expect(context.viewState.rooms.first { $0.id == forwardingItem.roomID } == nil, "The source room ID shouldn't be shown")
+        #expect(!context.viewState.rooms.contains(where: { $0.id == forwardingItem.roomID }), "The source room ID shouldn't be shown")
     }
     
     @Test
     mutating func roomSelection() {
         context.send(viewAction: .selectRoom(roomID: "2"))
-        #expect(context.viewState.selectedRoomID == "2")
+        #expect(context.viewState.selectedRoomIDs == ["2"])
     }
     
     @Test
@@ -54,12 +55,12 @@ struct MessageForwardingScreenViewModelTests {
     @Test
     mutating func forwarding() async throws {
         context.send(viewAction: .selectRoom(roomID: "2"))
-        #expect(context.viewState.selectedRoomID == "2")
+        #expect(context.viewState.selectedRoomIDs == ["2"])
         
         let deferred = deferFulfillment(viewModel.actions) { action in
             switch action {
-            case .sent(let roomID):
-                return roomID == "2"
+            case .sent(let roomIDs):
+                return roomIDs == ["2"]
             default:
                 return false
             }

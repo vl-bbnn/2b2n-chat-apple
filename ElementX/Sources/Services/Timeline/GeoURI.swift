@@ -10,9 +10,9 @@ import CoreLocation
 import Foundation
 
 /// A structure that parses a geo URI (i.e. geo:53.99803101552848,-8.25347900390625;u=10) and constructs their constituent parts.
-struct GeoURI: Hashable {
+nonisolated struct GeoURI: Hashable {
     // MARK: - Properties
-
+    
     let latitude: Double
     let longitude: Double
     let uncertainty: Double?
@@ -20,9 +20,9 @@ struct GeoURI: Hashable {
     var bodyMessage: String {
         "Location was shared at \(string)"
     }
-
+    
     // MARK: - Setup
-
+    
     init?(string: String) {
         guard let parsedURI = Self.parseGeoURI(from: string) else {
             MXLog.warning("\(Self.self) failed to parse the string: \(string)")
@@ -30,13 +30,13 @@ struct GeoURI: Hashable {
         }
         self = parsedURI
     }
-
+    
     init(latitude: Double, longitude: Double, uncertainty: Double? = nil) {
         self.latitude = latitude
         self.longitude = longitude
         self.uncertainty = uncertainty
     }
-
+    
     var string: String {
         if let uncertainty {
             return "geo:\(string(for: latitude)),\(string(for: longitude));u=\(string(for: uncertainty))"
@@ -44,9 +44,9 @@ struct GeoURI: Hashable {
             return "geo:\(string(for: latitude)),\(string(for: longitude))"
         }
     }
-
+    
     // MARK: - Private
-
+    
     /// Parse a geo URI string like "geo:53.99803101552848,-8.25347900390625;u=10"
     private static func parseGeoURI(from string: String) -> GeoURI? {
         guard
@@ -56,11 +56,11 @@ struct GeoURI: Hashable {
         else {
             return nil
         }
-
+        
         let uncertainty = matchOutput.uncertainty.flatMap(Double.init)
         return .init(latitude: latitude, longitude: longitude, uncertainty: uncertainty)
     }
-
+    
     private func string(for number: Double) -> String {
         NumberFormatter.decimal.string(from: .init(floatLiteral: number)) ?? "\(number)"
     }
@@ -69,8 +69,11 @@ struct GeoURI: Hashable {
 // swiftlint:disable:next large_tuple
 private typealias RegexGeoURI = Regex<(Substring, latitude: Substring, longitude: Substring, uncertainty: Substring?)>
 
-private extension RegexGeoURI {
-    static let standard: Self = /geo:(?<latitude>-?\d+(?:\.\d+)?),(?<longitude>-?\d+(?:\.\d+)?)(?:,-?\d+(?:\.\d+)?)?(?:;u=(?<uncertainty>\d+(?:\.\d+)?))?/
+private nonisolated extension RegexGeoURI {
+    /// A computed property as `Regex` isn't Sendable.
+    static var standard: Self {
+        /geo:(?<latitude>-?\d+(?:\.\d+)?),(?<longitude>-?\d+(?:\.\d+)?)(?:,-?\d+(?:\.\d+)?)?(?:;u=(?<uncertainty>\d+(?:\.\d+)?))?/
+    }
 }
 
 extension GeoURI {
@@ -79,7 +82,7 @@ extension GeoURI {
     }
 }
 
-private extension NumberFormatter {
+private nonisolated extension NumberFormatter {
     static let decimal: NumberFormatter = {
         let numberFormatter = NumberFormatter()
         numberFormatter.locale = Locale(identifier: "en_US_POSIX")

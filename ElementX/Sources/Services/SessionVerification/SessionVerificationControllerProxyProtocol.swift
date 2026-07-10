@@ -31,7 +31,7 @@ enum SessionVerificationControllerProxyAction: Equatable {
 }
 
 struct SessionVerificationRequestDetails: Equatable {
-    let senderProfile: UserProfileProxy
+    let senderProfile: UserProfile
     let flowID: String
     let deviceID: String
     let deviceDisplayName: String?
@@ -54,7 +54,7 @@ protocol SessionVerificationControllerProxyProtocol {
     func acknowledgeVerificationRequest(details: SessionVerificationRequestDetails) async -> Result<Void, SessionVerificationControllerProxyError>
     
     func acceptVerificationRequest() async -> Result<Void, SessionVerificationControllerProxyError>
-        
+    
     func requestDeviceVerification() async -> Result<Void, SessionVerificationControllerProxyError>
     
     func requestUserVerification(_ userID: String) async -> Result<Void, SessionVerificationControllerProxyError>

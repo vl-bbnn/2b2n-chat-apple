@@ -8,7 +8,6 @@
 
 import SwiftUI
 
-@MainActor
 protocol CoordinatorProtocol: AnyObject {
     func start()
     func stop()
@@ -17,9 +16,9 @@ protocol CoordinatorProtocol: AnyObject {
 
 extension CoordinatorProtocol {
     func start() { }
-
+    
     func stop() { }
-
+    
     func toPresentable() -> AnyView {
         AnyView(Text("View not configured"))
     }

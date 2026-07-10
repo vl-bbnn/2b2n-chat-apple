@@ -20,7 +20,7 @@ struct LogViewerScreen: View {
 
 private struct PreviewView: UIViewControllerRepresentable {
     let urls: [URL]
-
+    
     func makeUIViewController(context: Context) -> UIViewController {
         let previewController = QLPreviewController()
         previewController.dataSource = context.coordinator
@@ -28,16 +28,16 @@ private struct PreviewView: UIViewControllerRepresentable {
         
         return UINavigationController(rootViewController: previewController)
     }
-
+    
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) { }
-
+    
     func makeCoordinator() -> Coordinator {
         Coordinator(view: self)
     }
     
     class Coordinator: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
         let view: PreviewView
-
+        
         init(view: PreviewView) {
             self.view = view
         }
@@ -47,7 +47,7 @@ private struct PreviewView: UIViewControllerRepresentable {
         func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
             view.urls.count
         }
-
+        
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
             let url = view.urls[index]
             
@@ -63,9 +63,9 @@ private struct PreviewView: UIViewControllerRepresentable {
 }
 
 private class PreviewItem: NSObject, QLPreviewItem {
-    var previewItemURL: URL?
-    var previewItemTitle: String?
-
+    nonisolated let previewItemURL: URL? // nonisolated as QuickLook can call from any thread (macOS 26).
+    nonisolated let previewItemTitle: String? // nonisolated as QuickLook can call from any thread (macOS 26).
+    
     init(previewItemURL: URL?, previewItemTitle: String?) {
         self.previewItemURL = previewItemURL
         self.previewItemTitle = previewItemTitle

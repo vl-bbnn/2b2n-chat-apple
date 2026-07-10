@@ -13,7 +13,6 @@ import AuthenticationServices
 /// In certain instances the URL may require opening an external app instead of using a WAS. Because of this
 /// it is recommended to not encode the OAuth authentication within any state machines, as there is no guarantee
 /// that any cancellations/failures will be communicated upwards.
-@MainActor
 class OAuthAuthenticationPresenter: NSObject {
     private let authenticationService: AuthenticationServiceProtocol
     private let redirectURL: URL
@@ -139,7 +138,7 @@ class OAuthAuthenticationPresenter: NSObject {
     private var loadingIndicatorID: String {
         "\(Self.self)-Loading"
     }
-
+    
     private var failureIndicatorID: String {
         "\(Self.self)-Failure"
     }
@@ -160,7 +159,7 @@ class OAuthAuthenticationPresenter: NSObject {
         userIndicatorController.submitIndicator(UserIndicator(id: failureIndicatorID,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }
 

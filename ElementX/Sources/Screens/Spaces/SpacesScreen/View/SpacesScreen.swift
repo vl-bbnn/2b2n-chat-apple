@@ -96,9 +96,9 @@ struct SpacesScreen: View {
             Button {
                 context.send(viewAction: .showSettings)
             } label: {
-                LoadableAvatarImage(url: context.viewState.userAvatarURL,
-                                    name: context.viewState.userDisplayName,
-                                    contentID: context.viewState.userID,
+                LoadableAvatarImage(url: context.viewState.userProfile.avatarURL,
+                                    name: context.viewState.userProfile.displayName,
+                                    contentID: context.viewState.userProfile.id,
                                     avatarSize: .user(on: .spaces),
                                     mediaProvider: context.mediaProvider)
                     .accessibilityIdentifier(A11yIdentifiers.homeScreen.userAvatar)
@@ -144,8 +144,7 @@ struct SpacesScreen_Previews: PreviewProvider, TestablePreview {
     }
     
     static func makeViewModel(isEmpty: Bool = false) -> SpacesScreenViewModel {
-        AppSettings.resetAllSettings()
-        let appSettings = AppSettings()
+        let appSettings = AppSettings.volatile()
         
         let clientProxy = ClientProxyMock(.init())
         clientProxy.spaceService = SpaceServiceProxyMock(.init(topLevelSpaces: isEmpty ? [] : .mockJoinedSpaces))

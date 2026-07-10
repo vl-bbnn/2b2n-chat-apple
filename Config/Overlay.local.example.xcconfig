@@ -1,0 +1,17 @@
+// Copy to Config/Overlay.local.xcconfig or generate it with
+// scripts/render_overlay_local_xcconfig.sh. Do not commit real values.
+
+OVERLAY_APP_DISPLAY_NAME = Element X Dev
+OVERLAY_PRODUCTION_APP_NAME = Element
+OVERLAY_APPICON_NAME = AppIcon
+OVERLAY_BASE_BUNDLE_IDENTIFIER = dev.example.elementx
+OVERLAY_DEVELOPMENT_TEAM = ABCDE12345
+OVERLAY_PROVISIONING_PROFILE_SPECIFIER =
+OVERLAY_APS_ENVIRONMENT = development
+OVERLAY_APP_GROUP_IDENTIFIER = group.dev.example.elementx
+OVERLAY_CLASSIC_APP_GROUP_IDENTIFIER = group.dev.example.elementx.classic
+OVERLAY_CLASSIC_APP_KEYCHAIN_SERVICE_IDENTIFIER = im.vector.app.encryption-manager-service
+OVERLAY_CLASSIC_APP_KEYCHAIN_ACCESS_GROUP_IDENTIFIER = $(OVERLAY_DEVELOPMENT_TEAM).dev.example.elementx.classic
+OVERLAY_CLASSIC_APP_DEEP_LINK_URL = element://open
+OVERLAY_ASSOCIATED_APPLINK_DOMAIN = example.com
+OVERLAY_ASSOCIATED_WEB_CREDENTIALS_DOMAIN = example.com

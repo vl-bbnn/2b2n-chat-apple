@@ -12,7 +12,6 @@ import Combine
 import SwiftUI
 import Testing
 
-@MainActor
 struct PreviewTests {
     private struct SnapshotDevice {
         let name: String
@@ -21,18 +20,18 @@ struct PreviewTests {
     
     private let deviceConfig: ViewImageConfig = .iPhoneX
     private let simulatorDevice: String? = "iPhone14,6" // iPhone SE 3rd Generation
-    private let requiredOSVersion = (major: 26, minor: 4)
+    private let requiredOSVersion = (major: 26, minor: 5)
     /// The key is the name we will give to the snapshot
     /// The value is the actual device that will be used to render the preview
     private let snapshotDevices: [SnapshotDevice] = [.init(name: "iPhone", device: "iPhone 17"),
                                                      .init(name: "iPad", device: "iPad")]
     private var recordMode: SnapshotTestingConfiguration.Record = .missing
-
+    
     init() {
         if ProcessInfo().environment["RECORD_FAILURES"].map(Bool.init) == true {
             recordMode = .failed
         }
-
+        
         checkEnvironments()
         UIView.setAnimationsEnabled(false)
     }
@@ -45,7 +44,7 @@ struct PreviewTests {
                 fatalError("\(deviceModel ?? "Unknown") is the wrong one. Switch to using \(simulatorDevice) for these tests.")
             }
         }
-
+        
         let osVersion = ProcessInfo().operatingSystemVersion
         guard osVersion.majorVersion == requiredOSVersion.major, osVersion.minorVersion == requiredOSVersion.minor else {
             fatalError("Switch to iOS \(requiredOSVersion) for these tests.")
@@ -56,7 +55,7 @@ struct PreviewTests {
     }
     
     // MARK: - Snapshots
-
+    
     func assertSnapshots(matching preview: _Preview,
                          step: Int,
                          testName: String = #function,
@@ -124,15 +123,15 @@ struct PreviewTests {
         }
         return languageCode + "-" + regionCode
     }
-
+    
     private var languageCode: String {
         Locale.current.language.languageCode?.identifier ?? ""
     }
-
+    
     private var regionCode: String {
         Locale.current.language.region?.identifier ?? ""
     }
-
+    
     private func assertSnapshots(matching view: AnyView,
                                  name: String?,
                                  isScreen: Bool,
@@ -193,7 +192,7 @@ private extension Snapshotting where Value: SwiftUI.View, Format == UIImage {
                              layout: SwiftUISnapshotLayout = .sizeThatFits,
                              traits: UITraitCollection = .init()) -> Snapshotting {
         let config: ViewImageConfig
-
+        
         switch layout {
         #if os(iOS) || os(tvOS)
         case let .device(config: deviceConfig):
@@ -207,21 +206,21 @@ private extension Snapshotting where Value: SwiftUI.View, Format == UIImage {
             // Make sure to use the workaround safe area insets.
             config = .init(safeArea: .one, size: size, traits: traits)
         }
-
+        
         return SimplySnapshotting<UIImage>(pathExtension: "png", diffing: .prefireImage(preferences: preferences, scale: traits.displayScale))
             .asyncPullback { view in
                 var config = config
-
+                
                 let controller: UIViewController
-
+                
                 if config.size != nil {
                     controller = UIHostingController(rootView: view)
                 } else {
                     let hostingController = UIHostingController(rootView: view)
-
+                    
                     let maxSize = CGSize.zero
                     config.size = hostingController.sizeThatFits(in: maxSize)
-
+                    
                     controller = hostingController
                 }
                 

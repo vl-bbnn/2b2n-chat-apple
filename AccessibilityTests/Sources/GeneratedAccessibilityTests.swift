@@ -123,10 +123,6 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "EditRoomAddressScreen_Previews")
     }
 
-    func testElementTextFieldStyle() async throws {
-        try await performAccessibilityAudit(named: "ElementTextFieldStyle_Previews")
-    }
-
     func testEmojiPickerScreenHeaderView() async throws {
         try await performAccessibilityAudit(named: "EmojiPickerScreenHeaderView_Previews")
     }
@@ -181,14 +177,6 @@ extension AccessibilityTests {
 
     func testFullscreenDialog() async throws {
         try await performAccessibilityAudit(named: "FullscreenDialog_Previews")
-    }
-
-    func testGlobalSearchScreenListRow() async throws {
-        try await performAccessibilityAudit(named: "GlobalSearchScreenListRow_Previews")
-    }
-
-    func testGlobalSearchScreen() async throws {
-        try await performAccessibilityAudit(named: "GlobalSearchScreen_Previews")
     }
 
     func testHighlightedTimelineItemModifier() async throws {
@@ -615,6 +603,10 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "SFNumberedListView_Previews")
     }
 
+    func testSearchScreen() async throws {
+        try await performAccessibilityAudit(named: "SearchScreen_Previews")
+    }
+
     func testSecureBackupKeyBackupScreen() async throws {
         try await performAccessibilityAudit(named: "SecureBackupKeyBackupScreen_Previews")
     }
@@ -793,6 +785,10 @@ extension AccessibilityTests {
 
     func testTimelineReplyView() async throws {
         try await performAccessibilityAudit(named: "TimelineReplyView_Previews")
+    }
+
+    func testTimelineScrollButton() async throws {
+        try await performAccessibilityAudit(named: "TimelineScrollButton_Previews")
     }
 
     func testTimelineStartRoomTimelineView() async throws {

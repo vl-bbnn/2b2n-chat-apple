@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-struct MentionBuilder: MentionBuilderProtocol {
+nonisolated struct MentionBuilder: MentionBuilderProtocol {
     struct AttributesToRestore {
         let font: UIFont
         let blockquote: Bool?
@@ -49,7 +49,7 @@ struct MentionBuilder: MentionBuilderProtocol {
     
     func handleAllUsersMention(for attributedString: NSMutableAttributedString, in range: NSRange) {
         let attributesToRestore = getAttributesToRestore(for: attributedString, in: range)
-
+        
         let attachmentData = PillTextAttachmentData(type: .allUsers, font: attributesToRestore.font)
         guard let attachment = PillTextAttachment(attachmentData: attachmentData) else {
             return
@@ -80,7 +80,7 @@ struct MentionBuilder: MentionBuilderProtocol {
                                                                    .font: attributesToRestore.font,
                                                                    .foregroundColor: attributesToRestore.foregroundColor]
         attachmentAttributes.addBlockquoteIfNeeded(attributesToRestore.blockquote)
-
+        
         setPillAttachment(attachment: attachment,
                           attributedString: attributedString,
                           in: range,
@@ -173,7 +173,7 @@ struct MentionBuilder: MentionBuilderProtocol {
     }
 }
 
-private extension Dictionary where Key == NSAttributedString.Key, Value == Any {
+private nonisolated extension Dictionary where Key == NSAttributedString.Key, Value == Any {
     mutating func addBlockquoteIfNeeded(_ value: Bool?) {
         if let value {
             self[.MatrixBlockquote] = value

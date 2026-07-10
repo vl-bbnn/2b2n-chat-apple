@@ -12,7 +12,7 @@ enum FileManagerError: Error {
     case invalidFileSize
 }
 
-extension FileManager {
+nonisolated extension FileManager {
     func directoryExists(at url: URL) -> Bool {
         var isDirectory: ObjCBool = false
         guard fileExists(atPath: url.path(percentEncoded: false), isDirectory: &isDirectory) else {
@@ -20,7 +20,7 @@ extension FileManager {
         }
         return isDirectory.boolValue
     }
-
+    
     func createDirectoryIfNeeded(at url: URL, withIntermediateDirectories: Bool = true) throws {
         guard !directoryExists(at: url) else {
             return
@@ -36,7 +36,7 @@ extension FileManager {
         
         return newURL
     }
-
+    
     @discardableResult
     func writeDataToTemporaryDirectory(data: Data, fileName: String, withinAppGroupContainer: Bool = false) throws -> URL {
         let baseURL: URL = withinAppGroupContainer ? .appGroupTemporaryDirectory : .temporaryDirectory
@@ -59,7 +59,7 @@ extension FileManager {
         
         return size
     }
-
+    
     func sizeForDirectory(at url: URL) throws -> UInt {
         guard let enumerator = enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey]) else {
             throw FileManagerError.invalidFileSize

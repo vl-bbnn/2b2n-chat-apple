@@ -17,7 +17,7 @@ struct PollFormScreenViewModelTests {
     private var context: PollFormScreenViewModelType.Context {
         viewModel.context
     }
-
+    
     @Test
     mutating func newPollInitialState() async throws {
         setupViewModel()
@@ -26,6 +26,7 @@ struct PollFormScreenViewModelTests {
         let isEmpty = context.options.allSatisfy(\.text.isEmpty)
         #expect(isEmpty)
         #expect(context.question.isEmpty)
+        #expect(context.maxSelections == 1)
         #expect(context.viewState.isSubmitButtonDisabled)
         #expect(!context.viewState.bindings.isUndisclosed)
         
@@ -44,6 +45,7 @@ struct PollFormScreenViewModelTests {
         #expect(context.options.count == 3)
         #expect(context.options.allSatisfy { !$0.text.isEmpty })
         #expect(!context.question.isEmpty)
+        #expect(context.maxSelections == 1)
         #expect(context.viewState.isSubmitButtonDisabled)
         #expect(!context.viewState.bindings.isUndisclosed)
         
@@ -89,23 +91,59 @@ struct PollFormScreenViewModelTests {
         context.send(viewAction: .cancel)
         #expect(context.alertInfo != nil)
     }
-
+    
+    @Test
+    mutating func maxSelectionsBounds() async throws {
+        setupViewModel()
+        
+        context.send(viewAction: .decrementMaxSelections)
+        #expect(context.maxSelections == 1)
+        
+        context.send(viewAction: .incrementMaxSelections)
+        #expect(context.maxSelections == 2)
+        
+        context.send(viewAction: .incrementMaxSelections)
+        #expect(context.maxSelections == 2)
+        
+        context.send(viewAction: .addOption)
+        context.send(viewAction: .incrementMaxSelections)
+        #expect(context.maxSelections == 3)
+        
+        let deferredMaxSelections = deferFulfillment(context.observe(\.viewState.bindings.maxSelections)) { $0 == 2 }
+        context.send(viewAction: .deleteOption(index: 2))
+        try await deferredMaxSelections.fulfill()
+        #expect(context.maxSelections == 2)
+    }
+    
+    @Test
+    mutating func editPollInitialMaxSelections() {
+        setupViewModel(mode: .edit(eventID: "foo", poll: .mock(question: "Pick two",
+                                                               maxSelections: 2,
+                                                               options: [.mock(text: "One"),
+                                                                         .mock(text: "Two"),
+                                                                         .mock(text: "Three")])))
+        
+        #expect(context.maxSelections == 2)
+    }
+    
     @Test
     mutating func newPollSubmit() async throws {
         setupViewModel()
         context.question = "foo"
         context.options[0].text = "bla1"
         context.options[1].text = "bla2"
+        context.send(viewAction: .incrementMaxSelections)
         #expect(!context.viewState.isSubmitButtonDisabled)
-
+        
         let deferred = deferFulfillment(viewModel.actions) { $0 == .close }
         
         try await confirmation { confirmation in
-            timelineProxy.createPollQuestionAnswersPollKindClosure = { question, options, kind in
+            timelineProxy.createPollQuestionAnswersMaxSelectionsPollKindClosure = { question, options, maxSelections, kind in
                 #expect(question == "foo")
                 #expect(options.count == 2)
                 #expect(options[0] == "bla1")
                 #expect(options[1] == "bla2")
+                #expect(maxSelections == 2)
                 #expect(kind == .disclosed)
                 confirmation()
                 return .success(())
@@ -115,19 +153,20 @@ struct PollFormScreenViewModelTests {
             try await deferred.fulfill()
         }
     }
-
+    
     @Test
     mutating func editPollSubmit() async throws {
         setupViewModel(mode: .edit(eventID: "foo", poll: .emptyDisclosed))
         
         context.question = "What is your favorite country?"
         context.options.append(.init(text: "France 🇫🇷"))
+        context.send(viewAction: .incrementMaxSelections)
         #expect(!context.viewState.isSubmitButtonDisabled)
-
+        
         let deferred = deferFulfillment(viewModel.actions) { $0 == .close }
         
         try await confirmation { confirmation in
-            timelineProxy.editPollOriginalQuestionAnswersPollKindClosure = { eventID, question, options, kind in
+            timelineProxy.editPollOriginalQuestionAnswersMaxSelectionsPollKindClosure = { eventID, question, options, maxSelections, kind in
                 #expect(eventID == "foo")
                 #expect(question == "What is your favorite country?")
                 #expect(options.count == 4)
@@ -135,6 +174,7 @@ struct PollFormScreenViewModelTests {
                 #expect(options[1] == "China 🇨🇳")
                 #expect(options[2] == "USA 🇺🇸")
                 #expect(options[3] == "France 🇫🇷")
+                #expect(maxSelections == 2)
                 #expect(kind == .disclosed)
                 confirmation()
                 return .success(())
@@ -152,7 +192,7 @@ struct PollFormScreenViewModelTests {
         context.question = "What is your favorite country?"
         context.options.append(.init(text: "France 🇫🇷"))
         #expect(!context.viewState.isSubmitButtonDisabled)
-
+        
         let deferredFailure = deferFailure(viewModel.actions, timeout: .seconds(1)) { $0 == .close }
         context.send(viewAction: .delete)
         
@@ -176,10 +216,10 @@ struct PollFormScreenViewModelTests {
     
     // MARK: - Helpers
     
-    private mutating func setupViewModel(mode: PollFormMode = .new) {
+    private mutating func setupViewModel(mode: PollFormMode = .new(topic: nil)) {
         viewModel = PollFormScreenViewModel(mode: mode,
-                                            timelineController: MockTimelineController(timelineProxy: timelineProxy),
-                                            analytics: .mock(),
+                                            timelineController: TimelineControllerMock(.init(timelineProxy: timelineProxy)),
+                                            analytics: AnalyticsServiceMock(.init()),
                                             userIndicatorController: UserIndicatorControllerMock())
     }
 }

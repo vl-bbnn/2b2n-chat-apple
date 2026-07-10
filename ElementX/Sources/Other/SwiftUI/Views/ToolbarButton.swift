@@ -9,13 +9,12 @@ import Compound
 import SwiftUI
 
 struct ToolbarButton: View {
-    @MainActor
     enum Role {
         static let cancel = Role.cancel(title: L10n.actionCancel)
         static let done = Role.confirm(title: L10n.actionDone)
         static let save = Role.confirm(title: L10n.actionSave)
         static let close = Role.cancel(title: L10n.actionClose)
-
+        
         case cancel(title: String)
         case confirm(title: String)
         case destructive(title: String)

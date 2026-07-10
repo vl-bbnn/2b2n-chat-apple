@@ -11,13 +11,15 @@ import LoremSwiftum
 import MatrixRustSDK
 import MatrixRustSDKMocks
 
-struct EventTimelineItemSDKMockConfiguration {
+nonisolated struct EventTimelineItemSDKMockConfiguration {
     var eventID: String = UUID().uuidString
     var sender = ""
     var senderProfile: ProfileDetails?
     var forwarder: String?
     var forwarderProfile: ProfileDetails?
     var isOwn = false
+    var isEditable = false
+    var canBeRepliedTo = false
     var content: TimelineItemContent = .msgLike(content: .init(kind: .redacted,
                                                                reactions: [],
                                                                inReplyTo: nil,
@@ -25,8 +27,12 @@ struct EventTimelineItemSDKMockConfiguration {
                                                                threadSummary: nil))
 }
 
-extension EventTimelineItem {
+nonisolated extension EventTimelineItem {
     init(configuration: EventTimelineItemSDKMockConfiguration) {
+        let lazyProvider = LazyTimelineItemProviderSDKMock()
+        lazyProvider.containsOnlyEmojisReturnValue = false
+        lazyProvider.getShieldsStrictReturnValue = ShieldState.none
+        lazyProvider.debugInfoReturnValue = .init(model: "", originalJson: nil, latestEditJson: nil)
         self.init(isRemote: true,
                   eventOrTransactionId: .eventId(eventId: configuration.eventID),
                   sender: configuration.sender,
@@ -34,16 +40,16 @@ extension EventTimelineItem {
                   forwarder: configuration.forwarder,
                   forwarderProfile: configuration.forwarderProfile,
                   isOwn: configuration.isOwn,
-                  isEditable: false,
+                  isEditable: configuration.isEditable,
                   content: configuration.content,
                   eventTypeRaw: nil,
-                  timestamp: 0,
+                  timestamp: UInt64(Date.mock.timeIntervalSince1970 * 1000),
                   localSendState: nil,
                   localCreatedAt: nil,
                   readReceipts: [:],
                   origin: nil,
-                  canBeRepliedTo: false,
-                  lazyProvider: LazyTimelineItemProviderSDKMock())
+                  canBeRepliedTo: configuration.canBeRepliedTo,
+                  lazyProvider: lazyProvider)
     }
     
     static var mockMessage: EventTimelineItem {

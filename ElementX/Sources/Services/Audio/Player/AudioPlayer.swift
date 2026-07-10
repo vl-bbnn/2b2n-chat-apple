@@ -49,7 +49,7 @@ class AudioPlayer: NSObject, AudioPlayerProtocol {
     
     private(set) var playbackURL: URL?
     private(set) var playbackSpeed: Float = 1.0
-
+    
     private var deinitInProgress = false
     
     var duration: TimeInterval {
@@ -82,7 +82,7 @@ class AudioPlayer: NSObject, AudioPlayerProtocol {
     
     private var isStopped = true
     
-    deinit {
+    isolated deinit {
         deinitInProgress = true
         stop()
         unloadContent()
@@ -129,14 +129,14 @@ class AudioPlayer: NSObject, AudioPlayerProtocol {
         let time = progress * duration
         await internalAudioPlayer.seek(to: CMTime(seconds: time, preferredTimescale: 60))
     }
-
+    
     func setPlaybackSpeed(_ speed: Float) {
         playbackSpeed = speed
         if state == .playing {
             internalAudioPlayer?.rate = speed
         }
     }
-
+    
     // MARK: - Private
     
     private func setupAudioSession() {
@@ -178,40 +178,49 @@ class AudioPlayer: NSObject, AudioPlayerProtocol {
         playerItem = nil
         removeObservers()
     }
-
+    
     private func addObservers() {
         guard let internalAudioPlayer, let playerItem else {
             return
         }
         
-        statusObserver = playerItem.observe(\.status, options: [.old, .new]) { [weak self] _, _ in
-            guard let self else { return }
-            
-            switch playerItem.status {
-            case .failed:
-                setInternalState(.error(playerItem.error ?? AudioPlayerError.genericError))
-            case .readyToPlay:
-                guard state == .loading else { return }
-                setInternalState(.readyToPlay)
-            default:
-                break
-            }
-        }
+        statusObserver = playerItem.observe(\.status, options: [.old, .new]) { [weak self] item, _ in
+            // KVO fires on an arbitrary thread, hop to the main actor with the values we need.
+            let status = item.status
+            let error = item.error
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 
-        rateObserver = internalAudioPlayer.observe(\.rate, options: [.old, .new]) { [weak self] _, _ in
-            guard let self else { return }
-            
-            if internalAudioPlayer.rate == 0 {
-                if isStopped {
-                    setInternalState(.stopped)
-                } else {
-                    setInternalState(.paused)
+                switch status {
+                case .failed:
+                    setInternalState(.error(error ?? AudioPlayerError.genericError))
+                case .readyToPlay:
+                    guard state == .loading else { return }
+                    setInternalState(.readyToPlay)
+                default:
+                    break
                 }
-            } else {
-                setInternalState(.playing)
             }
         }
+        
+        rateObserver = internalAudioPlayer.observe(\.rate, options: [.old, .new]) { [weak self] player, _ in
+            // KVO fires on an arbitrary thread, hop to the main actor with the values we need.
+            let rate = player.rate
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 
+                if rate == 0 {
+                    if isStopped {
+                        setInternalState(.stopped)
+                    } else {
+                        setInternalState(.paused)
+                    }
+                } else {
+                    setInternalState(.playing)
+                }
+            }
+        }
+        
         NotificationCenter.default.publisher(for: Notification.Name.AVPlayerItemDidPlayToEndTime)
             .sink { [weak self] _ in
                 guard let self else { return }

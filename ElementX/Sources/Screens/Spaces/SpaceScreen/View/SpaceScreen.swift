@@ -184,6 +184,7 @@ struct SpaceScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct SpaceScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel()
     static let managingViewModel = makeViewModel(isManagingRooms: true)
@@ -203,7 +204,7 @@ struct SpaceScreen_Previews: PreviewProvider, TestablePreview {
             SpaceScreen(context: newSpaceViewModel.context)
         }
         .previewDisplayName("New Space")
-        .snapshotPreferences(expect: newSpaceViewModel.context.observe(\.viewState).map(\.canEditChildren))
+        .snapshotPreferences(expect: newSpaceViewModel.context.observe(\.viewState.canEditChildren))
     }
     
     static func makeViewModel(isManagingRooms: Bool = false, isNewSpace: Bool = false) -> SpaceScreenViewModel {

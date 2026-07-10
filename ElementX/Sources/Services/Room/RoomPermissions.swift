@@ -32,7 +32,7 @@ struct RoomPermissionsSetting: Identifiable {
             value = newValue.powerLevelValue
         }
     }
-        
+    
     /// The `RoomPermissions` property that this setting is for.
     let keyPath: KeyPath<RoomPermissions, Int64>
     /// The `RoomPowerLevelChanges` properties that this setting is saved into.
@@ -74,7 +74,7 @@ struct RoomPermissionsSetting: Identifiable {
     }
 }
 
-struct RoomPermissions {
+nonisolated struct RoomPermissions {
     /// The level required to ban a user.
     var ban: Int64
     /// The level required to invite a user.

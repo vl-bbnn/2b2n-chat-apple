@@ -10,7 +10,6 @@ import Combine
 import Compound
 import SwiftUI
 
-@MainActor
 struct HomeScreenKnockedCell: View {
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     
@@ -46,7 +45,7 @@ struct HomeScreenKnockedCell: View {
     }
     
     // MARK: - Private
-
+    
     private var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
@@ -86,7 +85,7 @@ struct HomeScreenKnockedCell: View {
             .fill(Color.compound.borderDisabled)
             .frame(height: 1 / UIScreen.main.scale)
     }
-        
+    
     private var title: String {
         room.name
     }
@@ -131,20 +130,16 @@ struct HomeScreenKnockedCell_Previews: PreviewProvider, TestablePreview {
         let clientProxy = ClientProxyMock(.init())
         
         let userSession = UserSessionMock(.init(clientProxy: clientProxy))
-
-        let appSettings = AppSettings()
-        let analytics = AnalyticsService.mock(settings: appSettings)
-
+        
         return HomeScreenViewModel(userSession: userSession,
                                    selectedRoomPublisher: CurrentValueSubject<String?, Never>(nil).asCurrentValuePublisher(),
-                                   appSettings: appSettings,
-                                   analyticsService: analytics,
+                                   appSettings: .volatile(),
+                                   analyticsService: AnalyticsServiceMock(.init()),
                                    notificationManager: NotificationManagerMock(),
-                                   userIndicatorController: UserIndicatorControllerMock.default)
+                                   userIndicatorController: UserIndicatorControllerMock())
     }
 }
 
-@MainActor
 private extension HomeScreenRoom {
     static var dmInvite: HomeScreenRoom {
         let inviter = RoomMemberProxyMock()

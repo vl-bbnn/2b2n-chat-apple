@@ -48,7 +48,7 @@ class DeveloperOptionsScreenViewModel: DeveloperOptionsScreenViewModelType, Deve
                 if let logsSize = try? FileManager.default.sizeForDirectory(at: .appGroupLogsDirectory) {
                     components.append(.init(name: "Log Files", size: formatter.format(Int64(logsSize))))
                 }
-            
+                
                 state.storeSizes = components
             }
         }
@@ -59,7 +59,7 @@ class DeveloperOptionsScreenViewModel: DeveloperOptionsScreenViewModelType, Deve
         case .clearCache:
             actionsSubject.send(.clearCache)
         case .markAllRoomsAsRead:
-            Task.detached {
+            Task {
                 await self.clientProxy?.markAllRoomsAsRead()
             }
         }

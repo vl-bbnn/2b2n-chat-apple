@@ -10,92 +10,33 @@
 import EmbeddedElementCall
 #endif
 
+import Combine
 import Foundation
+import Macros
 import SwiftUI
 
 /// Common settings between app and NSE
-protocol CommonSettingsProtocol: AnyObject {
+nonisolated protocol CommonSettingsProtocol: AnyObject, Sendable {
     var lastNotificationBootTime: TimeInterval? { get set }
-    var notificationSoundName: RemotePreference<UNNotificationSoundName> { get }
+    var selectedNotificationTone: NotificationTone? { get set }
     
     var logLevel: LogLevel { get }
     var traceLogPacks: Set<TraceLogPack> { get }
     var bugReportRageshakeURL: RemotePreference<RageshakeConfiguration> { get }
+    var contentScannerURL: RemotePreference<URL?> { get }
     
     var enableOnlySignedDeviceIsolationMode: Bool { get }
     var threadsEnabled: Bool { get }
+    var globalSearchEnabled: Bool { get }
     var hideQuietNotificationAlerts: Bool { get }
 }
 
-enum AppBuildType {
+nonisolated enum AppBuildType {
     case debug
     case nightly
     case release
-}
-
-/// Store Element specific app settings.
-final class AppSettings {
-    private enum UserDefaultsKeys: String {
-        case lastVersionLaunched
-        case seenInvites
-        case hasSeenNewSoundBanner
-        case appLockNumberOfPINAttempts
-        case appLockNumberOfBiometricAttempts
-        case timelineStyle
-        
-        case analyticsConsentState
-        case hasRunNotificationPermissionsOnboarding
-        case hasRunIdentityConfirmationOnboarding
-        case hasRequestedLocationAlwaysLocationAuthorization
-        
-        case frequentlyUsedSystemEmojis
-        
-        case enableNotifications
-        case enableInAppNotifications
-        case pusherProfileTag
-        case lastNotificationBootTime
-        case logLevel
-        case traceLogPacks
-        case viewSourceEnabled
-        case optimizeMediaUploads
-        case appAppearance
-        case sharePresence
-        
-        case elementCallBaseURLOverride
-        
-        case voiceMessagePlaybackSpeed
-        
-        // Live Location
-        case liveLocationSharingTimeoutDatesByRoomID
-        case liveLocationMinimumDistanceUpdate
-        case liveLocationDisclaimerDisplayed
-        
-        // Feature flags
-        case fuzzyRoomListSearchEnabled
-        case lowPriorityFilterEnabled
-        case enableOnlySignedDeviceIsolationMode
-        case knockingEnabled
-        case threadsEnabled
-        case roomThreadListEnabled
-        case linkPreviewsEnabled
-        case focusEventOnNotificationTap
-        case linkNewDeviceEnabled
-        case automaticBackPaginationEnabled
-        case clientPausingAndResumingEnabled
-        
-        // Doug's tweaks 🔧
-        case roomListActivityVisibility
-        case hideQuietNotificationAlerts
-        
-        case developerOptionsEnabled
-    }
     
-    private static var suiteName: String = InfoPlistReader.main.appGroupIdentifier
-
-    /// UserDefaults to be used on reads and writes.
-    private static var store: UserDefaults! = UserDefaults(suiteName: suiteName)
-    
-    static var appBuildType: AppBuildType {
+    static var current: AppBuildType {
         #if DEBUG
         return .debug
         #else
@@ -107,25 +48,29 @@ final class AppSettings {
         }
         #endif
     }
+}
+
+/// Store Element specific app settings.
+///
+/// State is persisted in `UserDefaults`, which is thread-safe per Apple's documentation, hence `@unchecked`.
+final nonisolated class AppSettings: @unchecked Sendable {
+    static let suiteName: String = InfoPlistReader.main.appGroupIdentifier
     
-    static func resetAllSettings() {
+    /// UserDefaults to be used on reads and writes.
+    private let store: UserDefaultsProtocol
+    
+    static var appBuildType: AppBuildType {
+        AppBuildType.current
+    }
+    
+    func resetAllSettings() {
         MXLog.warning("Resetting the AppSettings.")
-        store.removePersistentDomain(forName: suiteName)
+        store.reset()
     }
     
-    static func resetSessionSpecificSettings() {
+    func resetSessionSpecificSettings() {
         MXLog.warning("Resetting the user session specific AppSettings.")
-        store.removeObject(forKey: UserDefaultsKeys.hasRunIdentityConfirmationOnboarding.rawValue)
-    }
-    
-    static func configureWithSuiteName(_ name: String) {
-        suiteName = name
-        
-        guard let userDefaults = UserDefaults(suiteName: name) else {
-            fatalError("Fail to load shared UserDefaults")
-        }
-        
-        store = userDefaults
+        resetHasRunIdentityConfirmationOnboarding()
     }
     
     // MARK: - Hooks
@@ -150,7 +95,7 @@ final class AppSettings {
                   accountProvisioningHost: String,
                   bugReportApplicationID: String,
                   analyticsTermsURL: URL?,
-                  mapTilerConfiguration: MapTilerConfiguration) {
+                  mapTilerConfiguration: MapTilerSettings.Configuration) {
         self.accountProviders = accountProviders
         self.allowOtherAccountProviders = allowOtherAccountProviders
         self.hideBrandChrome = hideBrandChrome
@@ -170,7 +115,7 @@ final class AppSettings {
         self.accountProvisioningHost = accountProvisioningHost
         self.bugReportApplicationID = bugReportApplicationID
         self.analyticsTermsURL = analyticsTermsURL
-        self.mapTilerConfiguration = mapTilerConfiguration
+        mapTilerSettings = RemotePreference(.configuration(mapTilerConfiguration))
     }
     
     // MARK: - Application
@@ -178,17 +123,17 @@ final class AppSettings {
     /// The last known version of the app that was launched on this device, which is
     /// used to detect when migrations should be run. When `nil` the app may have been
     /// deleted between runs so should clear data in the shared container and keychain.
-    @UserPreference(key: UserDefaultsKeys.lastVersionLaunched, storageType: .userDefaults(store))
+    @UserPreference
     var lastVersionLaunched: String?
-        
+    
     /// The Set of room identifiers of invites that the user already saw in the invites list.
     /// This Set is being used to implement badges for unread invites.
-    @UserPreference(key: UserDefaultsKeys.seenInvites, defaultValue: [], storageType: .userDefaults(store))
+    @UserPreference(defaultValue: Set<String>())
     var seenInvites: Set<String>
     
     /// Defaults to `true` for new users, and we use a migration to set it to `false` for existing users.
-    @UserPreference(key: UserDefaultsKeys.hasSeenNewSoundBanner, defaultValue: true, storageType: .userDefaults(store))
-    var hasSeenNewSoundBanner
+    @UserPreference(defaultValue: true)
+    var hasSeenNewSoundBanner: Bool
     
     /// The initial set of account providers shown to the user in the authentication flow.
     ///
@@ -201,8 +146,10 @@ final class AppSettings {
     private(set) var hideBrandChrome = false
     
     /// The task identifier used for background app refresh. Also used in main target's the Info.plist
-    let backgroundAppRefreshTaskIdentifier = "io.element.elementx.background.refresh"
-
+    var backgroundAppRefreshTaskIdentifier: String {
+        InfoPlistReader.main.baseBundleIdentifier + ".background.refresh"
+    }
+    
     /// A URL where users can go read more about the app.
     private(set) var websiteURL: URL = "https://element.io"
     /// A URL that contains the app's logo that may be used when showing content in a web view.
@@ -223,7 +170,7 @@ final class AppSettings {
     private(set) var identityPinningViolationDetailsURL: URL = "https://element.io/help#encryption18"
     /// A URL describing how history sharing works
     private(set) var historySharingDetailsURL: URL = "https://element.io/en/help#e2ee-history-sharing"
-
+    
     /// Any domains that Element web may be hosted on - used for handling links.
     private(set) var elementWebHosts = ["app.element.io", "staging.element.io", "develop.element.io"]
     /// The domain that account provisioning links will be hosted on - used for handling the links.
@@ -232,7 +179,7 @@ final class AppSettings {
     /// **Note:** This property isn't overridable as it in unexpected for forks to come across the error (or to even have a "Pro" app).
     let elementProAppStoreURL: URL = "https://apps.apple.com/app/element-pro-for-work/id6502951615"
     
-    @UserPreference(key: UserDefaultsKeys.appAppearance, defaultValue: .system, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: AppAppearance.system)
     var appAppearance: AppAppearance
     
     // MARK: - Security
@@ -244,7 +191,7 @@ final class AppSettings {
     /// Any codes that the user isn't allowed to use for their PIN.
     let appLockPINCodeBlockList = ["0000", "1234"]
     /// The number of attempts the user has made to unlock the app with a PIN code (resets when unlocked).
-    @UserPreference(key: UserDefaultsKeys.appLockNumberOfPINAttempts, defaultValue: 0, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: 0)
     var appLockNumberOfPINAttempts: Int
     
     // MARK: - Authentication
@@ -253,15 +200,17 @@ final class AppSettings {
     let oAuthStaticRegistrations: [URL: String] = ["https://id.thirdroom.io/realms/thirdroom": "elementx"]
     /// The redirect URL used for OAuth. For the normal case we don't actually need the bundle ID as the web authentication session handles the redirect internally.
     /// However in the case where MAS sends the user to an external app, we need to make sure that the system will open the correct variant of the app (e.g. Nightly).
-    private(set) var oAuthRedirectURL: URL! = URL(string: "https://element.io/oauth/ios/\(InfoPlistReader.main.bundleIdentifier)")
+    private(set) nonisolated(unsafe) var oAuthRedirectURL: URL! = URL(string: "https://element.io/oauth/ios/\(InfoPlistReader.main.bundleIdentifier)")
     
-    private(set) lazy var oAuthConfiguration = OAuthConfiguration(clientName: InfoPlistReader.main.bundleDisplayName,
-                                                                  redirectURI: oAuthRedirectURL,
-                                                                  clientURI: websiteURL,
-                                                                  logoURI: logoURL,
-                                                                  tosURI: acceptableUseURL,
-                                                                  policyURI: privacyURL,
-                                                                  staticRegistrations: oAuthStaticRegistrations.mapKeys { $0.absoluteString })
+    var oAuthConfiguration: OAuthConfiguration {
+        OAuthConfiguration(clientName: InfoPlistReader.main.bundleDisplayName,
+                           redirectURI: oAuthRedirectURL,
+                           clientURI: websiteURL,
+                           logoURI: logoURL,
+                           tosURI: acceptableUseURL,
+                           policyURI: privacyURL,
+                           staticRegistrations: oAuthStaticRegistrations.mapKeys { $0.absoluteString })
+    }
     
     /// Whether or not the Create Account button is shown on the start screen.
     ///
@@ -283,32 +232,33 @@ final class AppSettings {
         pushGatewayBaseURL.appending(path: "_matrix/push/v1/notify")
     }
     
-    @UserPreference(key: UserDefaultsKeys.enableNotifications, defaultValue: true, storageType: .userDefaults(store))
-    var enableNotifications
-
-    @UserPreference(key: UserDefaultsKeys.enableInAppNotifications, defaultValue: true, storageType: .userDefaults(store))
-    var enableInAppNotifications
+    @UserPreference(defaultValue: true)
+    var enableNotifications: Bool
     
-    @UserPreference(key: UserDefaultsKeys.hideQuietNotificationAlerts, defaultValue: false, storageType: .userDefaults(store))
-    var hideQuietNotificationAlerts
-
+    @UserPreference(defaultValue: true)
+    var enableInAppNotifications: Bool
+    
+    @UserPreference(defaultValue: false)
+    var hideQuietNotificationAlerts: Bool
+    
     /// Tag describing which set of device specific rules a pusher executes.
-    @UserPreference(key: UserDefaultsKeys.pusherProfileTag, storageType: .userDefaults(store))
+    @UserPreference
     var pusherProfileTag: String?
     
     /// The device's last boot time as recorded by the NSE.
-    @UserPreference(key: UserDefaultsKeys.lastNotificationBootTime, storageType: .userDefaults(store))
+    @UserPreference
     var lastNotificationBootTime: TimeInterval?
     
-    /// The name of sound played when delivering noisy notifications.
-    var notificationSoundName: RemotePreference<UNNotificationSoundName> = .init(.init("message.caf"))
+    /// The sound played when delivering noisy notifications. If nil, use the ElementX default
+    @UserPreference
+    var selectedNotificationTone: NotificationTone?
     
     // MARK: - Logging
-        
-    @UserPreference(key: UserDefaultsKeys.logLevel, defaultValue: LogLevel.info, storageType: .userDefaults(store))
-    var logLevel
     
-    @UserPreference(key: UserDefaultsKeys.traceLogPacks, defaultValue: [], storageType: .userDefaults(store))
+    @UserPreference(defaultValue: LogLevel.info)
+    var logLevel: LogLevel
+    
+    @UserPreference(defaultValue: Set<TraceLogPack>())
     var traceLogPacks: Set<TraceLogPack>
     
     // MARK: - Bug report
@@ -318,6 +268,12 @@ final class AppSettings {
     let bugReportSentryRustURL: URL? = Secrets.sentryRustDSN.map { URL(string: $0)! } // swiftlint:disable:this force_unwrapping
     /// The name allocated by the bug report server
     private(set) var bugReportApplicationID = "element-x-ios"
+    
+    // MARK: - Content scanner
+    
+    /// The base URL of the content scanner server used to scan media before it is downloaded.
+    /// `nil` when content scanning is disabled.
+    let contentScannerURL: RemotePreference<URL?> = .init(nil)
     
     // MARK: - Analytics
     
@@ -336,52 +292,52 @@ final class AppSettings {
     }
     
     /// Whether the user has opted in to send analytics.
-    @UserPreference(key: UserDefaultsKeys.analyticsConsentState, defaultValue: AnalyticsConsentState.unknown, storageType: .userDefaults(store))
-    var analyticsConsentState
+    @UserPreference(defaultValue: AnalyticsConsentState.unknown)
+    var analyticsConsentState: AnalyticsConsentState
     
-    @UserPreference(key: UserDefaultsKeys.hasRunNotificationPermissionsOnboarding, defaultValue: false, storageType: .userDefaults(store))
-    var hasRunNotificationPermissionsOnboarding
+    @UserPreference(defaultValue: false)
+    var hasRunNotificationPermissionsOnboarding: Bool
     
-    @UserPreference(key: UserDefaultsKeys.hasRunIdentityConfirmationOnboarding, defaultValue: false, storageType: .userDefaults(store))
-    var hasRunIdentityConfirmationOnboarding
+    @UserPreference(defaultValue: false)
+    var hasRunIdentityConfirmationOnboarding: Bool
     
-    @UserPreference(key: UserDefaultsKeys.hasRequestedLocationAlwaysLocationAuthorization, defaultValue: false, storageType: .userDefaults(store))
-    var hasRequestedLocationAlwaysLocationAuthorization
+    @UserPreference(defaultValue: false)
+    var hasRequestedLocationAlwaysLocationAuthorization: Bool
     
-    @UserPreference(key: UserDefaultsKeys.frequentlyUsedSystemEmojis, defaultValue: [FrequentlyUsedEmoji](), storageType: .userDefaults(store))
-    var frequentlyUsedSystemEmojis
+    @UserPreference(defaultValue: [FrequentlyUsedEmoji]())
+    var frequentlyUsedSystemEmojis: [FrequentlyUsedEmoji]
     
     // MARK: - Live Location
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationSharingTimeoutDatesByRoomID, defaultValue: [String: LiveLocationSession](), storageType: .userDefaults(store))
-    var liveLocationSharingSessionsByRoomID
+    @UserPreference(key: "liveLocationSharingTimeoutDatesByRoomID", defaultValue: [String: LiveLocationSession]())
+    var liveLocationSharingSessionsByRoomID: [String: LiveLocationSession]
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationMinimumDistanceUpdate, defaultValue: 10, storageType: .userDefaults(store))
-    var liveLocationMinimumDistanceUpdate
+    @UserPreference(defaultValue: 10)
+    var liveLocationMinimumDistanceUpdate: Int
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationDisclaimerDisplayed, defaultValue: false, storageType: .userDefaults(store))
-    var liveLocationDisclaimerDisplayed
+    @UserPreference(defaultValue: false)
+    var liveLocationDisclaimerDisplayed: Bool
     
     // MARK: - Home Screen
     
-    @UserPreference(key: UserDefaultsKeys.roomListActivityVisibility, defaultValue: .current, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: RoomListActivityVisibility.current)
     var roomListActivityVisibility: RoomListActivityVisibility
     
     // MARK: - Room Screen
     
-    @UserPreference(key: UserDefaultsKeys.viewSourceEnabled, defaultValue: appBuildType == .debug, storageType: .userDefaults(store))
-    var viewSourceEnabled
+    @UserPreference(defaultValue: AppBuildType.current == .debug)
+    var viewSourceEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.optimizeMediaUploads, defaultValue: true, storageType: .userDefaults(store))
-    var optimizeMediaUploads
-
-    @UserPreference(key: UserDefaultsKeys.voiceMessagePlaybackSpeed, defaultValue: AudioPlaybackSpeed.default, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: true)
+    var optimizeMediaUploads: Bool
+    
+    @UserPreference(defaultValue: AudioPlaybackSpeed.default)
     var voiceMessagePlaybackSpeed: AudioPlaybackSpeed
-
+    
     /// Whether or not to show a warning on the media caption composer so the user knows
     /// that captions might not be visible to users who are using other Matrix clients.
     let shouldShowMediaCaptionWarning = true
-
+    
     // MARK: - Element Call
     
     #if IS_MAIN_APP
@@ -394,7 +350,7 @@ final class AppSettings {
     let elementCallPosthogAPIKey = "phc_rXGHx9vDmyEvyRxPziYtdVIv0ahEv8A9uLWFcCi1WcU"
     let elementCallPosthogSentryDSN = "https://3bd2f95ba5554d4497da7153b552ffb5@sentry.tools.element.io/41"
     
-    @UserPreference(key: UserDefaultsKeys.elementCallBaseURLOverride, defaultValue: nil, storageType: .userDefaults(store))
+    @UserPreference
     var elementCallBaseURLOverride: URL?
     
     // MARK: - Users
@@ -404,56 +360,78 @@ final class AppSettings {
     
     // MARK: - Maps
     
-    /// maptiler base url
-    private(set) var mapTilerConfiguration = MapTilerConfiguration(baseURL: "https://api.maptiler.com/maps",
-                                                                   apiKey: Secrets.mapLibreAPIKey,
-                                                                   lightStyleID: "9bc819c8-e627-474a-a348-ec144fe3d810",
-                                                                   darkStyleID: "dea61faf-292b-4774-9660-58fcef89a7f3")
+    /// The locally-bundled MapTiler configuration.
+    static let bundledMapTilerConfiguration = MapTilerSettings.Configuration(baseURL: "https://api.maptiler.com/maps",
+                                                                             apiKey: Secrets.mapLibreAPIKey,
+                                                                             lightStyleID: "9bc819c8-e627-474a-a348-ec144fe3d810",
+                                                                             darkStyleID: "dea61faf-292b-4774-9660-58fcef89a7f3")
+    
+    /// The resolved map tile settings. Defaults to ``MapTilerSettings.configuration(_:)`` with the
+    /// bundled configuration and is remotely overridden with ``MapTilerSettings.url(_:)`` when
+    /// the homeserver advertises a `style.json` URL via the matrix client well-known.
+    private(set) var mapTilerSettings = RemotePreference<MapTilerSettings>(.configuration(AppSettings.bundledMapTilerConfiguration))
     
     // MARK: - Presence
     
-    @UserPreference(key: UserDefaultsKeys.sharePresence, defaultValue: true, storageType: .userDefaults(store))
-    var sharePresence
+    @UserPreference(defaultValue: true)
+    var sharePresence: Bool
     
     // MARK: - Feature Flags
     
     /// Others
-    @UserPreference(key: UserDefaultsKeys.fuzzyRoomListSearchEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var fuzzyRoomListSearchEnabled
+    @UserPreference(defaultValue: false)
+    var fuzzyRoomListSearchEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.lowPriorityFilterEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var lowPriorityFilterEnabled
+    @UserPreference(defaultValue: false)
+    var lowPriorityFilterEnabled: Bool
     
     /// Configuration to enable only signed device isolation mode for  crypto. In this mode only devices signed by their owner will be considered in e2ee rooms.
-    @UserPreference(key: UserDefaultsKeys.enableOnlySignedDeviceIsolationMode, defaultValue: false, storageType: .userDefaults(store))
-    var enableOnlySignedDeviceIsolationMode
+    @UserPreference(defaultValue: false)
+    var enableOnlySignedDeviceIsolationMode: Bool
     
-    @UserPreference(key: UserDefaultsKeys.knockingEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var knockingEnabled
+    @UserPreference(defaultValue: false)
+    var knockingEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.threadsEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var threadsEnabled
+    @UserPreference(defaultValue: false)
+    var threadsEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.roomThreadListEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var roomThreadListEnabled
+    @UserPreference(defaultValue: false)
+    var roomThreadListEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.focusEventOnNotificationTap, defaultValue: false, storageType: .userDefaults(store))
-    var focusEventOnNotificationTap
-        
-    @UserPreference(key: UserDefaultsKeys.linkPreviewsEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var linkPreviewsEnabled
+    @UserPreference(defaultValue: ProcessInfo().isiOSAppOnMac)
+    var globalSearchEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.linkNewDeviceEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var linkNewDeviceEnabled
+    @UserPreference(defaultValue: false)
+    var focusEventOnNotificationTap: Bool
     
-    @UserPreference(key: UserDefaultsKeys.automaticBackPaginationEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var automaticBackPaginationEnabled
+    @UserPreference(defaultValue: false)
+    var linkPreviewsEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.clientPausingAndResumingEnabled, defaultValue: appBuildType != .release, storageType: .volatile)
-    var clientPausingAndResumingEnabled
+    @UserPreference(defaultValue: false)
+    var jumpToReadMarkerEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.developerOptionsEnabled, defaultValue: appBuildType != .release, storageType: .userDefaults(store))
-    var developerOptionsEnabled
+    @UserPreference(defaultValue: false)
+    var linkNewDeviceEnabled: Bool
+    
+    @UserPreference(defaultValue: false)
+    var automaticBackPaginationEnabled: Bool
+    
+    @UserPreference(defaultValue: AppBuildType.current != .release, volatile: true)
+    var clientPausingAndResumingEnabled: Bool
+    
+    @UserPreference(defaultValue: false)
+    var userStatusEnabled: Bool
+    
+    @UserPreference(defaultValue: AppBuildType.current != .release)
+    var developerOptionsEnabled: Bool
+    
+    init(store: UserDefaultsProtocol) {
+        self.store = store
+    }
+    
+    static func volatile() -> AppSettings {
+        AppSettings(store: VolatileUserDefaults())
+    }
 }
 
-extension AppSettings: CommonSettingsProtocol { }
+nonisolated extension AppSettings: CommonSettingsProtocol { }

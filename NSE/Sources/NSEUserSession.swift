@@ -10,7 +10,7 @@ import Foundation
 import MatrixRustSDK
 
 // sourcery: AutoMockable
-protocol NSEUserSessionProtocol {
+nonisolated protocol NSEUserSessionProtocol {
     var inviteAvatarsVisibility: InviteAvatars { get async }
     var mediaPreviewVisibility: MediaPreviews { get async }
     var threadsEnabled: Bool { get }
@@ -19,7 +19,7 @@ protocol NSEUserSessionProtocol {
     func roomForIdentifier(_ roomID: String) -> Room?
 }
 
-final class NSEUserSession: NSEUserSessionProtocol {
+final nonisolated class NSEUserSession: NSEUserSessionProtocol {
     private let sessionDirectories: SessionDirectories
     private let appSettings: CommonSettingsProtocol
     private let baseClient: Client
@@ -55,7 +55,7 @@ final class NSEUserSession: NSEUserSessionProtocol {
     var threadsEnabled: Bool {
         appSettings.threadsEnabled
     }
-
+    
     init(credentials: KeychainCredentials,
          roomID: String,
          clientSessionDelegate: ClientSessionDelegate,
@@ -95,7 +95,7 @@ final class NSEUserSession: NSEUserSessionProtocol {
     func notificationItemProxy(roomID: String, eventID: String) async -> NotificationItemProxyProtocol? {
         do {
             let notificationStatus = try await notificationClient.getNotification(roomId: roomID, eventId: eventID)
-                
+            
             switch notificationStatus {
             case .event(let notification):
                 return NotificationItemProxy(notificationItem: notification,
@@ -132,9 +132,9 @@ final class NSEUserSession: NSEUserSessionProtocol {
     }
 }
 
-private final class ClientDelegateWrapper: ClientDelegate {
+private final nonisolated class ClientDelegateWrapper: ClientDelegate {
     // MARK: - ClientDelegate
-
+    
     func didReceiveAuthError(isSoftLogout: Bool) {
         MXLog.error("Received authentication error, the NSE can't handle this.")
     }

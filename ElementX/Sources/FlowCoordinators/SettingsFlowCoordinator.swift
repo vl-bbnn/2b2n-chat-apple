@@ -143,6 +143,7 @@ class SettingsFlowCoordinator: FlowCoordinatorProtocol {
     private func startEncryptionSettingsFlow(animated: Bool) {
         let coordinator = EncryptionSettingsFlowCoordinator(parameters: .init(userSession: flowParameters.userSession,
                                                                               appSettings: flowParameters.appSettings,
+                                                                              appHooks: flowParameters.appHooks,
                                                                               userIndicatorController: flowParameters.userIndicatorController,
                                                                               navigationStackCoordinator: navigationStackCoordinator))
         coordinator.actionsPublisher.sink { [weak self] action in
@@ -180,6 +181,7 @@ class SettingsFlowCoordinator: FlowCoordinatorProtocol {
     private func startLinkNewDeviceFlow() {
         let stackCoordinator = NavigationStackCoordinator()
         let flowCoordinator = LinkNewDeviceFlowCoordinator(navigationStackCoordinator: stackCoordinator,
+                                                           appLockService: appLockService,
                                                            flowParameters: flowParameters)
         flowCoordinator.actionsPublisher
             .sink { [weak self] action in
@@ -190,6 +192,8 @@ class SettingsFlowCoordinator: FlowCoordinatorProtocol {
                     navigationStackCoordinator.setSheetCoordinator(nil)
                 case .requestOAuthAuthorisation(let url, let continuation):
                     presentAccountManagementURL(url, continuation: continuation)
+                case .forceLogout:
+                    actionsSubject.send(.forceLogout)
                 }
             }
             .store(in: &cancellables)
@@ -238,11 +242,12 @@ class SettingsFlowCoordinator: FlowCoordinatorProtocol {
                                                                           userIndicatorController: flowParameters.userIndicatorController))
         navigationStackCoordinator.push(coordinator)
     }
-        
+    
     private func presentNotificationSettings() {
         let notificationParameters = NotificationSettingsScreenCoordinatorParameters(navigationStackCoordinator: navigationStackCoordinator,
                                                                                      userSession: flowParameters.userSession,
                                                                                      userNotificationCenter: UNUserNotificationCenter.current(),
+                                                                                     userIndicatorController: flowParameters.userIndicatorController,
                                                                                      isModallyPresented: false,
                                                                                      appSettings: flowParameters.appSettings)
         let coordinator = NotificationSettingsScreenCoordinator(parameters: notificationParameters)

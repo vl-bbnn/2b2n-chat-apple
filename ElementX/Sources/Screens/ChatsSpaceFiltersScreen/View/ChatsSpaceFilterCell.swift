@@ -14,12 +14,12 @@ struct ChatsSpaceFilterCell: View {
     
     let filter: SpaceServiceFilter
     let mediaProvider: MediaProviderProtocol!
-        
+    
     private let verticalInsets = 12.0
     private let horizontalInsets = 16.0
     
     let action: (SpaceServiceFilter) -> Void
-
+    
     var body: some View {
         Button {
             action(filter)
@@ -49,7 +49,7 @@ struct ChatsSpaceFilterCell: View {
         .padding(.horizontal, horizontalInsets)
     }
     
-    @ViewBuilder @MainActor
+    @ViewBuilder
     private var avatar: some View {
         if dynamicTypeSize < .accessibility3 {
             RoomAvatarImage(avatar: filter.room.avatar,
@@ -96,7 +96,7 @@ struct ChatsSpaceFilterCell: View {
 }
 
 struct ChatsSpaceFilterCell_Previews: PreviewProvider, TestablePreview {
-    static let mediaProvider = MediaProviderMock(configuration: .init())
+    static let mediaProvider = MediaProviderMock(.init())
     
     static let spaces = [SpaceServiceRoom].mockJoinedSpaces2
     

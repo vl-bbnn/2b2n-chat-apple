@@ -90,20 +90,18 @@ enum HomeScreenSecurityBannerMode: Equatable {
 }
 
 struct HomeScreenViewState: BindableState {
-    let userID: String
-    var userDisplayName: String?
-    var userAvatarURL: URL?
+    var userProfile: UserProfile
     
     var securityBannerMode = HomeScreenSecurityBannerMode.none
     var shouldShowNewSoundBanner = false
     
     var requiresExtraAccountSetup = false
-        
+    
     var rooms: [HomeScreenRoom] = []
     var roomListMode: HomeScreenRoomListMode = .skeletons
     
     var hasPendingInvitations = false
-        
+    
     var selectedRoomID: String?
     
     var hideInviteAvatars = false
@@ -111,9 +109,12 @@ struct HomeScreenViewState: BindableState {
     var roomListActivityVisibility: RoomListActivityVisibility = .current
     
     var reportRoomEnabled = false
-        
+    
     var shouldShowSpaceFilters = false
     var selectedSpaceFilter: SpaceServiceFilter?
+    
+    /// Inline room list search is disabled when the dedicated global search tab is shown instead (see `UserSessionFlowCoordinator`).
+    var isRoomListSearchEnabled = true
     
     var visibleRooms: [HomeScreenRoom] {
         if roomListMode == .skeletons {
@@ -122,7 +123,7 @@ struct HomeScreenViewState: BindableState {
         
         return rooms
     }
-        
+    
     var bindings: HomeScreenViewStateBindings
     
     var placeholderRooms: [HomeScreenRoom] {
@@ -175,7 +176,7 @@ struct HomeScreenRoom: Identifiable, Equatable {
     }
     
     static let placeholderLastMessage = AttributedString("Hidden last message")
-        
+    
     /// The list item identifier is it's room identifier.
     let id: String
     
@@ -217,7 +218,7 @@ struct HomeScreenRoom: Identifiable, Equatable {
     let lastMessageState: LastMessageState?
     
     let avatar: RoomAvatar
-        
+    
     let canonicalAlias: String?
     
     let isTombstoned: Bool
@@ -271,7 +272,9 @@ extension HomeScreenRoom {
         
         let callBadge = if summary.hasOngoingCall {
             summary.activeCallIntent == .audio ? CallBadgeType.voice : CallBadgeType.video
-        } else { CallBadgeType.none }
+        } else {
+            CallBadgeType.none
+        }
         
         let type: HomeScreenRoom.RoomType = switch summary.joinRequestType {
         case .invite(let inviter): .invite(inviterDetails: inviter.map(RoomInviterDetails.init))

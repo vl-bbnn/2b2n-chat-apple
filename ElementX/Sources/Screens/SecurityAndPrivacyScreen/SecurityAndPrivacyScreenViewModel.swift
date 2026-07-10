@@ -105,6 +105,9 @@ class SecurityAndPrivacyScreenViewModel: SecurityAndPrivacyScreenViewModelType, 
             .drop { !$0.canEditAddress }
             .map(\.bindings.desiredSettings.accessType)
             .removeDuplicates()
+            // Only react to the user changing the access type, the room's initial
+            // state shouldn't reset the visibility it reports.
+            .dropFirst()
             // To allow the view to update properly
             .receive(on: DispatchQueue.main)
             .sink { [weak self] accessType in
@@ -149,7 +152,7 @@ class SecurityAndPrivacyScreenViewModel: SecurityAndPrivacyScreenViewModelType, 
             .weakAssign(to: \.state.isSpace, on: self)
             .store(in: &cancellables)
         
-        appSettings.$knockingEnabled
+        appSettings.knockingEnabledPublisher
             .weakAssign(to: \.state.isKnockingEnabled, on: self)
             .store(in: &cancellables)
     }
@@ -279,7 +282,7 @@ class SecurityAndPrivacyScreenViewModel: SecurityAndPrivacyScreenViewModelType, 
             displayManageAuthorizedSpacesScreen(isAskToJoin: true)
         }
     }
-
+    
     private func displayManageAuthorizedSpacesScreen(isAskToJoin: Bool) {
         let joinedSpaces = state.selectableJoinedSpaces
         let unknownSpaceIDs = state.currentSettings.accessType.spaceIDs.filter { id in

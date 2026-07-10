@@ -35,7 +35,7 @@ enum Application {
     private static func checkEnvironments() {
         let requirediPhoneSimulator = "iPhone18,3" // iPhone 17
         let requirediPadSimulator = "iPad15,7" // iPad (A16)
-        let requiredOSVersion = (major: 26, minor: 4)
+        let requiredOSVersion = (major: 26, minor: 5)
         
         let osVersion = ProcessInfo().operatingSystemVersion
         guard osVersion.majorVersion == requiredOSVersion.major, osVersion.minorVersion == requiredOSVersion.minor else {
@@ -102,11 +102,11 @@ extension XCUIApplication {
         }
         return languageCode + "-" + regionCode
     }
-
+    
     private var languageCode: String {
         Locale.current.language.languageCode?.identifier ?? ""
     }
-
+    
     private var regionCode: String {
         Locale.current.language.region?.identifier ?? ""
     }

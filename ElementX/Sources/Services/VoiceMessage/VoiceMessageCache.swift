@@ -8,7 +8,7 @@
 
 import Foundation
 
-class VoiceMessageCache: VoiceMessageCacheProtocol {
+final nonisolated class VoiceMessageCache: VoiceMessageCacheProtocol {
     private let preferredFileExtension = "m4a"
     private var temporaryFilesFolderURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("media/voice-message")
@@ -38,7 +38,7 @@ class VoiceMessageCache: VoiceMessageCacheProtocol {
         }
         return .success(url)
     }
-        
+    
     func clearCache() {
         if FileManager.default.fileExists(atPath: temporaryFilesFolderURL.path) {
             do {

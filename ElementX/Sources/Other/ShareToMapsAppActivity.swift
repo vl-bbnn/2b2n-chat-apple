@@ -15,42 +15,45 @@ final class ShareToMapsAppActivity: UIActivity {
         case google
         case osm
     }
-
+    
     private let type: MapsAppType
     private let location: CLLocationCoordinate2D
     private let senderName: String?
-
+    
     init(type: MapsAppType, location: CLLocationCoordinate2D, senderName: String?) {
         self.type = type
         self.location = location
         self.senderName = senderName
         super.init()
     }
-
-    override private init() {
+    
+    override private nonisolated init() {
         fatalError()
     }
-
-    override var activityTitle: String? {
+    
+    override nonisolated var activityTitle: String? {
         type.activityTitle
     }
-
-    override var activityType: UIActivity.ActivityType {
+    
+    override nonisolated var activityType: UIActivity.ActivityType {
         .shareToMapsApp
     }
-
-    override func canPerform(withActivityItems activityItems: [Any]) -> Bool {
+    
+    override nonisolated func canPerform(withActivityItems activityItems: [Any]) -> Bool {
         true
     }
-
-    override func prepare(withActivityItems activityItems: [Any]) {
-        UIApplication.shared.open(type.activityURL(for: location, senderName: senderName), options: [:]) { [weak self] result in
-            self?.activityDidFinish(result)
+    
+    override nonisolated func prepare(withActivityItems activityItems: [Any]) {
+        // UIActivity isn't annotated but UIKit guarantees this is called on the main thread.
+        MainActor.assumeIsolated {
+            UIApplication.shared.open(type.activityURL(for: location, senderName: senderName), options: [:]) { [weak self] result in
+                self?.activityDidFinish(result)
+            }
         }
     }
 }
 
-extension ShareToMapsAppActivity.MapsAppType {
+nonisolated extension ShareToMapsAppActivity.MapsAppType {
     func activityURL(for location: CLLocationCoordinate2D, senderName: String?) -> URL {
         switch self {
         case .apple:
@@ -76,7 +79,7 @@ extension ShareToMapsAppActivity.MapsAppType {
             return url
         }
     }
-
+    
     var activityTitle: String {
         switch self {
         case .apple:
@@ -89,6 +92,6 @@ extension ShareToMapsAppActivity.MapsAppType {
     }
 }
 
-private extension UIActivity.ActivityType {
+private nonisolated extension UIActivity.ActivityType {
     static let shareToMapsApp = UIActivity.ActivityType("ElementX.ShareToMapsApp")
 }

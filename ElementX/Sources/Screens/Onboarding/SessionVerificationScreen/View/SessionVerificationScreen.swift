@@ -70,7 +70,7 @@ struct SessionVerificationScreen: View {
                     accessibilityFocus = .title
                 }
                 .accessibilityFocused($accessibilityFocus, equals: .title)
-
+            
             Text(context.viewState.message)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -153,7 +153,7 @@ struct SessionVerificationScreen: View {
                 }
                 .buttonStyle(.compound(.primary))
             }
-        
+            
         case .showingChallenge:
             VStack(spacing: 16) {
                 Button(L10n.screenSessionVerificationTheyMatch) {
@@ -232,9 +232,9 @@ struct SessionVerification_Previews: PreviewProvider, TestablePreview {
         sessionVerificationScreen(state: .initial, flow: .userInitiator(userID: "@bob:matrix.org"))
             .previewDisplayName("Initial - User Initiator")
         
-        let details = SessionVerificationRequestDetails(senderProfile: UserProfileProxy(userID: "@bob:matrix.org",
-                                                                                        displayName: "Billy Bob",
-                                                                                        avatarURL: .mockMXCUserAvatar),
+        let details = SessionVerificationRequestDetails(senderProfile: UserProfile(userID: "@bob:matrix.org",
+                                                                                   displayName: "Billy Bob",
+                                                                                   avatarURL: .mockMXCUserAvatar),
                                                         flowID: "123",
                                                         deviceID: "CODEMISTAKE",
                                                         deviceDisplayName: "Bob's Element X iOS",
@@ -289,8 +289,8 @@ struct SessionVerification_Previews: PreviewProvider, TestablePreview {
                                           flow: SessionVerificationScreenFlow = .deviceInitiator) -> some View {
         let viewModel = SessionVerificationScreenViewModel(sessionVerificationControllerProxy: SessionVerificationControllerProxyMock.configureMock(),
                                                            flow: flow,
-                                                           appSettings: AppSettings(),
-                                                           mediaProvider: MediaProviderMock(configuration: .init()),
+                                                           appSettings: .volatile(),
+                                                           mediaProvider: MediaProviderMock(.init()),
                                                            verificationState: state)
         
         return SessionVerificationScreen(context: viewModel.context)

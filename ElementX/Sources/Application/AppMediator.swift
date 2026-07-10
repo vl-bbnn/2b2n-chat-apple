@@ -17,12 +17,12 @@ class AppMediator: AppMediatorProtocol {
         self.windowManager = windowManager
         self.networkMonitor = networkMonitor
     }
-        
+    
     /// UIApplication.State won't update if we store this e.g. in the constructor
     private var application: UIApplication {
         UIApplication.shared
     }
-
+    
     var appState: UIApplication.State {
         switch application.applicationState {
         case .active:
@@ -36,10 +36,10 @@ class AppMediator: AppMediatorProtocol {
         }
     }
     
-    func beginBackgroundTask(expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier {
+    func beginBackgroundTask(expirationHandler handler: (@MainActor @Sendable () -> Void)?) -> UIBackgroundTaskIdentifier {
         application.beginBackgroundTask(expirationHandler: handler)
     }
-
+    
     func endBackgroundTask(_ identifier: UIBackgroundTaskIdentifier) {
         application.endBackgroundTask(identifier)
     }

@@ -13,12 +13,12 @@ struct UserSessionMockConfiguration {
     var clientProxy: ClientProxyProtocol = ClientProxyMock(.init())
 }
 
-extension UserSessionMock {
+@MainActor extension UserSessionMock {
     convenience init(_ configuration: UserSessionMockConfiguration) {
         self.init()
         
         clientProxy = configuration.clientProxy
-        mediaProvider = MediaProviderMock(configuration: .init())
+        mediaProvider = MediaProviderMock(.init())
         voiceMessageMediaManager = VoiceMessageMediaManagerMock()
         
         sessionSecurityStatePublisher = CurrentValueSubject<SessionSecurityState, Never>(.init(verificationState: .verified, recoveryState: .enabled)).asCurrentValuePublisher()

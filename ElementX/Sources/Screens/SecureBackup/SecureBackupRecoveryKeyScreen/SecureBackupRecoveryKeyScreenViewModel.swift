@@ -19,7 +19,7 @@ class SecureBackupRecoveryKeyScreenViewModel: SecureBackupRecoveryKeyScreenViewM
     var actions: AnyPublisher<SecureBackupRecoveryKeyScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(secureBackupController: SecureBackupControllerProtocol,
          userIndicatorController: UserIndicatorControllerProtocol,
          isModallyPresented: Bool) {
@@ -41,7 +41,7 @@ class SecureBackupRecoveryKeyScreenViewModel: SecureBackupRecoveryKeyScreenViewM
             state.isGeneratingKey = true
             
             Task {
-                switch await secureBackupController.generateRecoveryKey() {
+                switch await secureBackupController.generateRecoveryKey(withPassphrase: nil) {
                 case .success(let key):
                     state.recoveryKey = key
                 case .failure(let error):
@@ -101,7 +101,7 @@ class SecureBackupRecoveryKeyScreenViewModel: SecureBackupRecoveryKeyScreenViewM
     }
 }
 
-extension SecureBackupRecoveryState {
+private extension SecureBackupRecoveryState {
     var viewMode: SecureBackupRecoveryKeyScreenViewMode {
         switch self {
         case .disabled:

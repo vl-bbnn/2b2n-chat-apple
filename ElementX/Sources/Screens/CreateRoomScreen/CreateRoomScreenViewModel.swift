@@ -15,7 +15,7 @@ typealias CreateRoomScreenViewModelType = StateStoreViewModel<CreateRoomScreenVi
 class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreenViewModelProtocol {
     private let userSession: UserSessionProtocol
     private let mediaUploadingPreprocessor: MediaUploadingPreprocessor
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     
     private var syncNameAndAlias = true
@@ -31,7 +31,7 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
          spaceSelectionMode: CreateRoomScreenSpaceSelectionMode,
          shouldShowCancelButton: Bool,
          userSession: UserSessionProtocol,
-         analytics: AnalyticsService,
+         analytics: AnalyticsServiceProtocol,
          userIndicatorController: UserIndicatorControllerProtocol,
          appSettings: AppSettings) {
         self.userSession = userSession
@@ -58,7 +58,7 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
         let bindings = CreateRoomScreenViewStateBindings(roomTopic: "",
                                                          selectedAccessType: selectedAccessType,
                                                          selectedSpace: selectedSpace)
-
+        
         super.init(initialViewState: CreateRoomScreenViewState(isSpace: isSpace,
                                                                shouldShowCancelButton: shouldShowCancelButton,
                                                                roomName: "",
@@ -137,7 +137,7 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
     }
     
     // MARK: - Private
-
+    
     private func setupBindings() {
         // Reset the state related to public rooms if the user choses the room to be empty
         context.$viewState
@@ -303,9 +303,9 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
     
     private func addRoomToSpace(roomProxy: JoinedRoomProxyProtocol, spaceID: String) async {
         roomProxy.subscribeToRoomInfoUpdates()
-        let runner = ExpiringTaskRunner {
+        let runner = ExpiringTaskRunner { @MainActor in
             // Necessary to build the room cache so that the space can be added as a parent.
-            _ = await roomProxy.infoPublisher.values.first { $0.powerLevels != nil }
+            _ = await roomProxy.infoPublisher.values.first { @Sendable in $0.powerLevels != nil }
         }
         
         do {

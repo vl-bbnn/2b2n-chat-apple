@@ -11,11 +11,13 @@ import SwiftUI
 enum LinkNewDeviceScreenCoordinatorAction {
     case linkMobileDevice(LinkNewDeviceService.LinkMobileProgressPublisher)
     case linkDesktopComputer
+    case verifyWithAppLockPIN(CheckedContinuation<Bool, Never>)
     case dismiss
 }
 
 struct LinkNewDeviceScreenCoordinatorParameters {
     let clientProxy: ClientProxyProtocol
+    let appLockService: AppLockServiceProtocol
     let orientationManager: OrientationManagerProtocol
 }
 
@@ -24,14 +26,15 @@ final class LinkNewDeviceScreenCoordinator: CoordinatorProtocol {
     private let orientationManager: OrientationManagerProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<LinkNewDeviceScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<LinkNewDeviceScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: LinkNewDeviceScreenCoordinatorParameters) {
-        viewModel = LinkNewDeviceScreenViewModel(clientProxy: parameters.clientProxy)
+        viewModel = LinkNewDeviceScreenViewModel(clientProxy: parameters.clientProxy,
+                                                 appLockService: parameters.appLockService)
         orientationManager = parameters.orientationManager
     }
     
@@ -45,6 +48,8 @@ final class LinkNewDeviceScreenCoordinator: CoordinatorProtocol {
                 actionsSubject.send(.linkMobileDevice(progressPublisher))
             case .linkDesktopComputer:
                 actionsSubject.send(.linkDesktopComputer)
+            case .verifyWithAppLockPIN(let continuation):
+                actionsSubject.send(.verifyWithAppLockPIN(continuation))
             case .dismiss:
                 actionsSubject.send(.dismiss)
             }
@@ -58,7 +63,7 @@ final class LinkNewDeviceScreenCoordinator: CoordinatorProtocol {
     func stop() {
         orientationManager.lockOrientation(.all)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(LinkNewDeviceScreen(context: viewModel.context))
     }

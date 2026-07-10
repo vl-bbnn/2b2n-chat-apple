@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension AttributedString {
+nonisolated extension AttributedString {
     /// faster than doing `String(characters)`: https://forums.swift.org/t/attributedstring-to-string/61667
     var string: String {
         String(characters[...])
@@ -36,7 +36,7 @@ extension AttributedString {
             case (false, false):
                 .plainText
             }
-                    
+            
             components.append(AttributedStringBuilderComponent(id: String(attributedString.characters),
                                                                attributedString: attributedString,
                                                                type: componentType))

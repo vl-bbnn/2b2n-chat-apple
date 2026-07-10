@@ -33,7 +33,7 @@ struct BuildSDK: AsyncParsableCommand {
     
     @Option(help: "The profile to use when building the SDK. Omit this option to build in debug mode.")
     var profile: Profile = .reldbg
-
+    
     enum Error: LocalizedError {
         case rustupOutputFailure
         case missingRustTargets([String])
@@ -125,7 +125,7 @@ struct BuildSDK: AsyncParsableCommand {
     /// Update project.yml with the local path of the SDK.
     func updateProjectYAML() throws {
         let yamlURL = URL.projectDirectory.appendingPathComponent("project.yml")
-        let yamlString = try String(contentsOf: yamlURL)
+        let yamlString = try String(contentsOf: yamlURL, encoding: .utf8)
         guard var projectConfig = try Yams.compose(yaml: yamlString) else { throw Error.failureParsingProjectYAML }
         
         projectConfig["packages"]?.mapping?["MatrixRustSDK"]? = ["path": "../matrix-rust-sdk"]
@@ -133,7 +133,7 @@ struct BuildSDK: AsyncParsableCommand {
         let updatedYAMLString = try Yams.serialize(node: projectConfig)
         try updatedYAMLString.write(to: yamlURL, atomically: true, encoding: .utf8)
     }
-
+    
     func generateSDKMocks() async throws {
         var command = GenerateSDKMocks()
         command.version = "local"

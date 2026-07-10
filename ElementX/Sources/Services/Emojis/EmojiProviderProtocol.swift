@@ -12,7 +12,7 @@ struct EmojiItem: Equatable, Identifiable {
     var id: String {
         label
     }
-
+    
     let label: String
     let unicode: String
     let keywords: [String]
@@ -32,7 +32,6 @@ enum EmojiProviderState {
     case loaded([EmojiCategory])
 }
 
-@MainActor
 protocol EmojiProviderProtocol {
     var state: EmojiProviderState { get }
     

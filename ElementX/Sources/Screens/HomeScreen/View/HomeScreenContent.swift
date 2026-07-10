@@ -16,6 +16,8 @@ struct HomeScreenContent: View {
     @ObservedObject var context: HomeScreenViewModel.Context
     let scrollViewAdapter: ScrollViewAdapter
     
+    @State private var topSectionHeight: CGFloat = 0
+    
     var body: some View {
         roomList
             .sentryTrace("\(Self.self)")
@@ -47,17 +49,19 @@ struct HomeScreenContent: View {
                 case .rooms:
                     LazyVStack(spacing: 0) {
                         Section {
-                            if !context.viewState.shouldShowEmptyFilterState {
+                            if context.viewState.shouldShowEmptyFilterState {
+                                RoomListFiltersEmptyStateView(state: context.filtersState)
+                                    .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - topSectionHeight))
+                            } else {
                                 HomeScreenRoomList(context: context)
                             }
                         } header: {
                             topSection
                         }
                     }
-                    .isSearching($context.isSearchFieldFocused)
-                    .searchable(text: $context.searchQuery, placement: .navigationBarDrawer(displayMode: .always))
-                    .compoundSearchField()
-                    .disableAutocorrection(true)
+                    .roomListSearchable(isEnabled: context.viewState.isRoomListSearchEnabled,
+                                        isSearchFieldFocused: $context.isSearchFieldFocused,
+                                        searchQuery: $context.searchQuery)
                 }
             }
             .introspect(.scrollView, on: .supportedVersions) { scrollView in
@@ -99,13 +103,6 @@ struct HomeScreenContent: View {
                     scrollView.setContentOffset(oldOffset, animated: false)
                 }
             }
-            .overlay {
-                if context.viewState.shouldShowEmptyFilterState {
-                    RoomListFiltersEmptyStateView(state: context.filtersState)
-                        .background(.compound.bgCanvasDefault)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
             .scrollDismissesKeyboard(.immediately)
             .scrollDisabled(context.viewState.roomListMode == .skeletons)
             .scrollBounceBehavior(context.viewState.roomListMode == .empty ? .basedOnSize : .automatic)
@@ -130,6 +127,7 @@ struct HomeScreenContent: View {
                 }
             }
             .background(Color.compound.bgCanvasDefault)
+            .readHeight($topSectionHeight)
         }
     }
     
@@ -160,5 +158,19 @@ struct HomeScreenContent: View {
         
         // This will be deduped and throttled on the view model layer
         context.send(viewAction: .updateVisibleItemRange(firstIndex..<lastIndex))
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func roomListSearchable(isEnabled: Bool, isSearchFieldFocused: Binding<Bool>, searchQuery: Binding<String>) -> some View {
+        if isEnabled {
+            isSearching(isSearchFieldFocused)
+                .searchable(text: searchQuery, placement: .navigationBarDrawer(displayMode: .always))
+                .compoundSearchField()
+                .disableAutocorrection(true)
+        } else {
+            self
+        }
     }
 }

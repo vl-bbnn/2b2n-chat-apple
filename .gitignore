@@ -11,7 +11,7 @@ xcuserdata/
 *.xcarchive
 
 ## SwiftPM
-/.build
+.build
 /Packages
 xcuserdata/
 DerivedData/
@@ -49,3 +49,7 @@ test_output
 # Only commit Pkl packages (there may be other caches in here).
 Secrets/vendor/*
 !Secrets/vendor/package-2
+
+# Local overlay/signing values. Generate from environment or create manually.
+/Config/Overlay.local.xcconfig
+/Config/Overlay.dev.local.xcconfig

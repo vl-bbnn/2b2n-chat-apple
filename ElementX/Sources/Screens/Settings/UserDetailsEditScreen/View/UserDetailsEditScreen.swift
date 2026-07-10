@@ -12,13 +12,13 @@ import SwiftUI
 struct UserDetailsEditScreen: View {
     @Bindable var context: UserDetailsEditScreenViewModel.Context
     @FocusState private var focus: Bool
-        
+    
     var body: some View {
         Form {
             Section {
                 avatar
             } footer: {
-                Text(context.viewState.userID)
+                Text(context.viewState.currentUserProfile.id)
                     .frame(maxWidth: .infinity)
                     .font(.compound.bodyLG)
                     .foregroundColor(.compound.textPrimary)
@@ -55,15 +55,15 @@ struct UserDetailsEditScreen: View {
             .disabled(!context.viewState.canSave)
         }
     }
-
+    
     private var avatar: some View {
         Button {
             context.send(viewAction: .presentMediaSource)
         } label: {
             OverridableAvatarImage(overrideURL: context.viewState.localMedia?.thumbnailURL,
                                    url: context.viewState.selectedAvatarURL,
-                                   name: context.viewState.currentDisplayName,
-                                   contentID: context.viewState.userID,
+                                   name: context.viewState.currentUserProfile.displayName,
+                                   contentID: context.viewState.currentUserProfile.id,
                                    shape: .circle,
                                    avatarSize: .user(on: .editUserDetails),
                                    mediaProvider: context.mediaProvider)
@@ -76,7 +76,7 @@ struct UserDetailsEditScreen: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .listRowBackground(Color.clear)
     }
-
+    
     private var nameSection: some View {
         Section {
             ListRow(label: .plain(title: L10n.screenEditProfileDisplayNamePlaceholder),
@@ -138,10 +138,13 @@ struct UserDetailsEditScreen_Previews: PreviewProvider, TestablePreview {
     }
     
     static func makeViewModel(canChangeProfile: Bool = true) -> UserDetailsEditScreenViewModel {
-        UserDetailsEditScreenViewModel(userSession: UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@stefan:matrix.org",
-                                                                                                             canChangeAvatar: canChangeProfile,
-                                                                                                             canChangeDisplayName: canChangeProfile)))),
-        mediaUploadingPreprocessor: .init(appSettings: AppSettings()),
-        userIndicatorController: UserIndicatorControllerMock.default)
+        let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@stefan:matrix.org",
+                                                                                   displayName: "Stefan",
+                                                                                   canChangeAvatar: canChangeProfile,
+                                                                                   canChangeDisplayName: canChangeProfile))))
+        
+        return UserDetailsEditScreenViewModel(userSession: userSession,
+                                              mediaUploadingPreprocessor: .init(appSettings: .volatile()),
+                                              userIndicatorController: UserIndicatorControllerMock())
     }
 }

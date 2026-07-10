@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-struct RoomMessageEventStringBuilder {
+nonisolated struct RoomMessageEventStringBuilder {
     enum Style {
         /// Plain: no prefix, no special text treatment
         /// Shown in push notifications and thread lists
@@ -70,7 +70,7 @@ struct RoomMessageEventStringBuilder {
         case .other(_, let body):
             message = AttributedString(body)
         }
-
+        
         if style == .senderPrefixed {
             return prefix(message, with: isOutgoing ? L10n.commonYou : senderDisplayName)
         } else {
@@ -90,7 +90,7 @@ struct RoomMessageEventStringBuilder {
             return message
         }
     }
-
+    
     private func buildMessage(for style: Style, caption: String?, type: String) -> AttributedString {
         guard let caption else {
             return AttributedString(type)
