@@ -13,6 +13,7 @@ jobs:
     name: Integration Tests
     runs-on: macos-26
     timeout-minutes: 45
+    if: ${{ github.event_name != 'schedule' || github.repository == 'element-hq/element-x-ios' }}
 
     concurrency:
       # Only allow a single run of this workflow on each branch, automatically cancelling older runs.
@@ -46,7 +47,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         # Skip if not successful and in forks
-        if: ${{ success() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        if: ${{ success() && github.repository == 'element-hq/element-x-ios' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           report_type: coverage
@@ -58,7 +59,7 @@ jobs:
 
       - name: Upload test results to Codecov
         # Skip if cancelled and in forks
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        if: ${{ !cancelled() && github.repository == 'element-hq/element-x-ios' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         continue-on-error: true
         with:
