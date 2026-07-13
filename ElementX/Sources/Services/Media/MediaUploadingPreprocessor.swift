@@ -93,8 +93,10 @@ struct MediaUploadingPreprocessor {
     
     enum Constants {
         static let maximumThumbnailSize = CGSize(width: 800, height: 600)
+        static let highDynamicRangeThumbnailMaxPixelSize = 1600.0
         static let optimizedMaxPixelSize = 2048.0
         static let jpegCompressionQuality = 0.78
+        static let highDynamicRangeThumbnailJPEGCompressionQuality = 0.9
         static let videoThumbnailTime = 5.0 // seconds
     }
     
@@ -382,9 +384,7 @@ struct MediaUploadingPreprocessor {
             throw .failedGeneratingImageThumbnail(nil)
         }
 
-        let scale = min(1,
-                        Constants.maximumThumbnailSize.width / sourceSize.width,
-                        Constants.maximumThumbnailSize.height / sourceSize.height)
+        let scale = min(1, Constants.highDynamicRangeThumbnailMaxPixelSize / max(sourceSize.width, sourceSize.height))
         let targetSize = CGSize(width: max(1, floor(sourceSize.width * scale)),
                                 height: max(1, floor(sourceSize.height * scale)))
         let thumbnailMaxPixelSize = max(targetSize.width, targetSize.height)
@@ -405,7 +405,7 @@ struct MediaUploadingPreprocessor {
         }
 
         let encodeOptions: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: Constants.jpegCompressionQuality,
+            kCGImageDestinationLossyCompressionQuality: Constants.highDynamicRangeThumbnailJPEGCompressionQuality,
             kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap,
             kCGImageDestinationEncodeRequestOptions: [kCGImageDestinationEncodeBaseIsSDR: true]
         ]

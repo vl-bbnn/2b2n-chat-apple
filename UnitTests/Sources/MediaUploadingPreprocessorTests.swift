@@ -45,8 +45,8 @@ final class MediaUploadingPreprocessorTests {
         #expect(try Data(contentsOf: imageURL) == sourceData)
         #expect(imageInfo.width == 1000)
         #expect(imageInfo.height == 800)
-        #expect(imageInfo.thumbnailInfo?.width == 750)
-        #expect(imageInfo.thumbnailInfo?.height == 600)
+        #expect(imageInfo.thumbnailInfo?.width == 1000)
+        #expect(imageInfo.thumbnailInfo?.height == 800)
 
         let thumbnailData = try Data(contentsOf: thumbnailURL)
         let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
