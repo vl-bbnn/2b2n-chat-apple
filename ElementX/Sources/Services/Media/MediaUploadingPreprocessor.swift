@@ -7,6 +7,7 @@
 //
 
 import AVFoundation
+import ImageIO
 import MatrixRustSDK
 import UIKit
 import UniformTypeIdentifiers
@@ -171,14 +172,16 @@ struct MediaUploadingPreprocessor {
     /// - Returns: Returns a `MediaInfo.image` containing the URLs for the modified image and its thumbnail plus the corresponding `ImageInfo`
     private func processImage(at url: inout URL, type: UTType, mimeType: String, maxUploadSize: UInt) -> Result<MediaInfo, MediaUploadingPreprocessorError> {
         do {
-            let shouldPreserveOriginal = try isUltraHDRJPEG(at: url, type: type)
-            
-            var mimeType = mimeType
-            if !shouldPreserveOriginal {
+            // Re-encoding a gain-map image as a regular JPEG destroys HDR. The input is already
+            // a private temporary copy, so keep HDR originals byte-for-byte and only create a
+            // separate, smaller HDR preview below.
+            let isHighDynamicRange = isHighDynamicRangeImage(at: url)
+            if !isHighDynamicRange {
                 try stripLocationFromImage(at: url, type: type)
             }
             
-            if !shouldPreserveOriginal, appSettings.optimizeMediaUploads, !type.conforms(to: .gif) {
+            var mimeType = mimeType
+            if appSettings.optimizeMediaUploads, !type.conforms(to: .gif), !isHighDynamicRange {
                 let outputType = type.conforms(to: .png) ? UTType.png : .jpeg
                 mimeType = outputType.preferredMIMEType ?? "application/octet-stream"
                 try resizeImage(at: url, maxPixelSize: Constants.optimizedMaxPixelSize, destination: url, type: outputType)
@@ -195,7 +198,7 @@ struct MediaUploadingPreprocessor {
                 }
             }
             
-            let thumbnailResult = shouldPreserveOriginal ? nil : try generateThumbnailForImage(at: url)
+            let thumbnailResult = try generateThumbnailForImage(at: url)
             
             guard let imageSource = CGImageSourceCreateWithURL(url as NSURL, nil),
                   let imageSize = imageSource.size else {
@@ -203,16 +206,14 @@ struct MediaUploadingPreprocessor {
             }
             
             let fileSize = (try? FileManager.default.sizeForItem(at: url)) ?? 0
-            let thumbnailFileSize = thumbnailResult.flatMap { try? FileManager.default.sizeForItem(at: $0.url) } ?? 0
+            let thumbnailFileSize = (try? FileManager.default.sizeForItem(at: thumbnailResult.url)) ?? 0
             
             guard fileSize < maxUploadSize, thumbnailFileSize < maxUploadSize else { return .failure(.maxUploadSizeExceeded(limit: maxUploadSize)) }
             
-            let thumbnailInfo = thumbnailResult.map {
-                ThumbnailInfo(height: UInt64($0.height),
-                              width: UInt64($0.width),
-                              mimetype: $0.mimeType,
-                              size: UInt64(thumbnailFileSize))
-            }
+            let thumbnailInfo = ThumbnailInfo(height: UInt64(thumbnailResult.height),
+                                              width: UInt64(thumbnailResult.width),
+                                              mimetype: thumbnailResult.mimeType,
+                                              size: UInt64(thumbnailFileSize))
             
             let imageInfo = ImageInfo(height: UInt64(imageSize.height),
                                       width: UInt64(imageSize.width),
@@ -220,35 +221,14 @@ struct MediaUploadingPreprocessor {
                                       size: UInt64(fileSize),
                                       thumbnailInfo: thumbnailInfo,
                                       thumbnailSource: nil,
-                                      blurhash: thumbnailResult?.blurhash,
+                                      blurhash: thumbnailResult.blurhash,
                                       isAnimated: nil)
             
-            let mediaInfo = MediaInfo.image(imageURL: url, thumbnailURL: thumbnailResult?.url, imageInfo: imageInfo)
+            let mediaInfo = MediaInfo.image(imageURL: url, thumbnailURL: thumbnailResult.url, imageInfo: imageInfo)
             
             return .success(mediaInfo)
         } catch {
             return .failure(.failedProcessingImage(error))
-        }
-    }
-    
-    private func isUltraHDRJPEG(at url: URL, type: UTType) throws(MediaUploadingPreprocessorError) -> Bool {
-        guard type.conforms(to: .jpeg) else {
-            return false
-        }
-        
-        guard let data = try? Data(contentsOf: url) else {
-            throw .failedProcessingImage(.failedStrippingLocationData)
-        }
-        
-        return [
-            "http://ns.adobe.com/hdr-gain-map/1.0/",
-            "urn:com:apple:photo:2020:aux:hdrgainmap",
-            "Item:Semantic=\"GainMap\"",
-            "Item:Semantic=\"GainMap",
-            "HDRGainMap",
-            "HdrGainMap"
-        ].contains { marker in
-            data.range(of: Data(marker.utf8)) != nil
         }
     }
     
@@ -373,6 +353,11 @@ struct MediaUploadingPreprocessor {
         let thumbnailFileName = "thumbnail-\((url.lastPathComponent as NSString).deletingPathExtension).jpeg"
         let thumbnailURL = url.deletingLastPathComponent().appendingPathComponent(thumbnailFileName)
         let thumbnailMaxPixelSize = max(Constants.maximumThumbnailSize.height, Constants.maximumThumbnailSize.width)
+
+        if isHighDynamicRangeImage(at: url),
+           let hdrThumbnail = try? generateHighDynamicRangeThumbnail(at: url, destination: thumbnailURL) {
+            return hdrThumbnail
+        }
         
         do {
             try resizeImage(at: url, maxPixelSize: thumbnailMaxPixelSize, destination: thumbnailURL, type: .jpeg)
@@ -387,6 +372,78 @@ struct MediaUploadingPreprocessor {
         let blurhash = thumbnail.blurHash(numberOfComponents: (3, 3))
         
         return .init(url: thumbnailURL, height: thumbnail.size.height, width: thumbnail.size.width, mimeType: "image/jpeg", blurhash: blurhash)
+    }
+
+    /// Creates a JPEG with an ISO gain map. ImageIO decodes the source to an HDR CGImage,
+    /// scales that image, then derives a new SDR base and gain map for the encoded preview.
+    private func generateHighDynamicRangeThumbnail(at url: URL, destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let sourceSize = imageSource.size else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        let scale = min(1,
+                        Constants.maximumThumbnailSize.width / sourceSize.width,
+                        Constants.maximumThumbnailSize.height / sourceSize.height)
+        let targetSize = CGSize(width: max(1, floor(sourceSize.width * scale)),
+                                height: max(1, floor(sourceSize.height * scale)))
+        let thumbnailMaxPixelSize = max(targetSize.width, targetSize.height)
+        let decodeOptions: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: thumbnailMaxPixelSize,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR
+        ]
+
+        guard let hdrImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, decodeOptions as CFDictionary) else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        try? FileManager.default.removeItem(at: destination)
+        guard let imageDestination = CGImageDestinationCreateWithURL(destination as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        let encodeOptions: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: Constants.jpegCompressionQuality,
+            kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap,
+            kCGImageDestinationEncodeRequestOptions: [kCGImageDestinationEncodeBaseIsSDR: true]
+        ]
+        CGImageDestinationAddImage(imageDestination, hdrImage, encodeOptions as CFDictionary)
+        guard CGImageDestinationFinalize(imageDestination), isHighDynamicRangeImage(at: destination) else {
+            try? FileManager.default.removeItem(at: destination)
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        let blurhash = standardDynamicRangeImage(at: destination)?.blurHash(numberOfComponents: (3, 3))
+        return .init(url: destination,
+                     height: Double(hdrImage.height),
+                     width: Double(hdrImage.width),
+                     mimeType: "image/jpeg",
+                     blurhash: blurhash)
+    }
+
+    private func isHighDynamicRangeImage(at url: URL) -> Bool {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return false
+        }
+        if CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil {
+            return true
+        }
+
+        var configuration = UIImageReader.Configuration()
+        configuration.prefersHighDynamicRange = true
+        return UIImageReader(configuration: configuration).image(contentsOf: url)?.isHighDynamicRange == true
+    }
+
+    private func standardDynamicRangeImage(at url: URL) -> UIImage? {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(imageSource, 0, [
+                  kCGImageSourceDecodeRequest: kCGImageSourceDecodeToSDR
+              ] as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: image)
     }
     
     private func resizeImage(at url: URL, maxPixelSize: CGFloat, destination: URL, type: UTType) throws(MediaUploadingPreprocessorError) {

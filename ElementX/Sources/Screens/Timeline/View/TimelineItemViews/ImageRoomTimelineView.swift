@@ -58,7 +58,9 @@ struct ImageRoomTimelineView: View {
             LoadableImage(mediaSource: timelineItem.content.thumbnailInfo?.source ?? timelineItem.content.imageInfo.source,
                           mediaType: .timelineItem(uniqueID: timelineItem.id.uniqueID),
                           blurhash: timelineItem.content.blurhash,
-                          size: timelineItem.content.thumbnailInfo?.size ?? timelineItem.content.imageInfo.size,
+                          // An explicit Matrix thumbnail is already correctly sized. Fetching it
+                          // as content preserves an ISO gain map; only resize the primary fallback.
+                          size: timelineItem.content.thumbnailInfo == nil ? timelineItem.content.imageInfo.size : nil,
                           mediaProvider: context?.mediaProvider) {
                 placeholder
             }

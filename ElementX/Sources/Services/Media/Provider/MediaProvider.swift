@@ -53,12 +53,17 @@ nonisolated struct MediaProvider: MediaProviderProtocol {
                 imageData = try await mediaLoader.loadMediaContentForSource(source)
             }
             
-            guard let image = UIImage(data: imageData) else {
+            var configuration = UIImageReader.Configuration()
+            configuration.prefersHighDynamicRange = true
+            configuration.preparesImagesForDisplay = true
+            guard let image = await UIImageReader(configuration: configuration).image(data: imageData) else {
                 MXLog.error("Invalid image data")
                 return .failure(.invalidImageData)
             }
             
-            try await imageCache.store(image, forKey: cacheKey)
+            // Keep the encoded gain map in the disk cache instead of letting the cache serializer
+            // flatten the decoded UIImage to a conventional JPEG or PNG.
+            try await imageCache.store(image, original: imageData, forKey: cacheKey)
             
             return .success(image)
         } catch {

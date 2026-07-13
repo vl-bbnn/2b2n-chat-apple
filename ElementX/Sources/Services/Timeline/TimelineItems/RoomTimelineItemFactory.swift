@@ -558,7 +558,7 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                                            width: messageContent.info?.thumbnailInfo?.width,
                                            height: messageContent.info?.thumbnailInfo?.height,
                                            mimeType: messageContent.info?.thumbnailInfo?.mimetype,
-                                           fileSize: messageContent.info?.size.map(UInt.init))
+                                           fileSize: messageContent.info?.thumbnailInfo?.size.map(UInt.init))
         
         let imageInfo = ImageInfoProxy(source: messageContent.source,
                                        width: messageContent.info?.width,
@@ -584,7 +584,7 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                                            width: messageContent.info?.thumbnailInfo?.width,
                                            height: messageContent.info?.thumbnailInfo?.height,
                                            mimeType: messageContent.info?.thumbnailInfo?.mimetype,
-                                           fileSize: messageContent.info?.size.map(UInt.init))
+                                           fileSize: messageContent.info?.thumbnailInfo?.size.map(UInt.init))
         
         let videoInfo = VideoInfoProxy(source: messageContent.source,
                                        duration: messageContent.info?.duration ?? 0,

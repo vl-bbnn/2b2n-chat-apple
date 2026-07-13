@@ -50,7 +50,7 @@ struct VideoRoomTimelineView: View {
             LoadableImage(mediaSource: thumbnailSource,
                           mediaType: .timelineItem(uniqueID: timelineItem.id.uniqueID),
                           blurhash: timelineItem.content.blurhash,
-                          size: timelineItem.content.thumbnailInfo?.size,
+                          size: nil,
                           mediaProvider: context?.mediaProvider) { imageView in
                 imageView
                     .overlay { playIcon }

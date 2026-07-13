@@ -135,7 +135,8 @@ private struct LoadableImageContent<TransformerView: View, PlaceholderView: View
         ZStack {
             switch (contentLoader.content, shouldRender) {
             case (.image(let image), true):
-                transformer(AnyView(Image(uiImage: image).resizable()))
+                let dynamicRange: Image.DynamicRange = mediaType == .avatar ? .standard : .high
+                transformer(AnyView(Image(uiImage: image).allowedDynamicRange(dynamicRange).resizable()))
             case (.gifData, true):
                 transformer(AnyView(KFAnimatedImage(source: .provider(self))))
             case (.none, _), (_, false):

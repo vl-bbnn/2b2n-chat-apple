@@ -6,7 +6,9 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import CoreImage
 @testable import ElementX
+import ImageIO
 import SwiftUI
 import Testing
 import UniformTypeIdentifiers
@@ -20,6 +22,38 @@ final class MediaUploadingPreprocessorTests {
         appSettings = AppSettings.volatile()
         appSettings.optimizeMediaUploads = false
         mediaUploadingPreprocessor = MediaUploadingPreprocessor(appSettings: appSettings)
+    }
+
+    #if targetEnvironment(simulator)
+    // ImageIO rejects synthetic ISO gain-map source encoding in the simulator.
+    @Test(.disabled())
+    #else
+    @Test
+    #endif
+    func highDynamicRangeJPEGPreservesOriginalAndGeneratesHighDynamicRangeThumbnail() async throws {
+        let sourceURL = FileManager.default.temporaryDirectory.appendingPathComponent("hdr-source-\(UUID().uuidString).jpeg")
+        try makeHighDynamicRangeJPEG(at: sourceURL, size: CGSize(width: 1000, height: 800))
+        let sourceData = try Data(contentsOf: sourceURL)
+        appSettings.optimizeMediaUploads = true
+
+        guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: sourceURL, maxUploadSize: maxUploadSize),
+              case let .image(imageURL, thumbnailURL, imageInfo) = result else {
+            Issue.record("Failed processing HDR asset")
+            return
+        }
+
+        #expect(try Data(contentsOf: imageURL) == sourceData)
+        #expect(imageInfo.width == 1000)
+        #expect(imageInfo.height == 800)
+        #expect(imageInfo.thumbnailInfo?.width == 750)
+        #expect(imageInfo.thumbnailInfo?.height == 600)
+
+        let thumbnailData = try Data(contentsOf: thumbnailURL)
+        let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        var configuration = UIImageReader.Configuration()
+        configuration.prefersHighDynamicRange = true
+        #expect(await UIImageReader(configuration: configuration).image(data: thumbnailData)?.isHighDynamicRange == true)
     }
     
     @Test
@@ -431,6 +465,25 @@ final class MediaUploadingPreprocessorTests {
     
     private func isEqual<N: UnsignedInteger>(_ lhs: N, _ rhs: N, within tolerance: N) -> Bool {
         isEqual(Double(lhs), Double(rhs), within: Double(tolerance))
+    }
+
+    private func makeHighDynamicRangeJPEG(at url: URL, size: CGSize) throws {
+        let colorSpace = try #require(CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3))
+        let image = CIImage(color: CIColor(red: 2, green: 0.5, blue: 0.25, alpha: 1))
+            .cropped(to: CGRect(origin: .zero, size: size))
+        let context = CIContext(options: [.workingColorSpace: colorSpace])
+        let cgImage = try #require(context.createCGImage(image,
+                                                         from: image.extent,
+                                                         format: .RGBAh,
+                                                         colorSpace: colorSpace))
+        let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        let options: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.9,
+            kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap,
+            kCGImageDestinationEncodeRequestOptions: [kCGImageDestinationEncodeBaseIsSDR: true]
+        ]
+        CGImageDestinationAddImage(destination, cgImage, options as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
     }
     
     private func isEqual<N: SignedNumeric & Comparable>(_ lhs: N, _ rhs: N, within tolerance: N) -> Bool {
