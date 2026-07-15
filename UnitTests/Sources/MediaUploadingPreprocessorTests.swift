@@ -337,7 +337,12 @@ final class MediaUploadingPreprocessorTests {
         #expect(optimizedImageInfo.height == 240)
     }
     
+    #if targetEnvironment(simulator)
+    // ImageIO can take several minutes to decode this 12 MP HEIC on the simulator.
+    @Test(.disabled())
+    #else
     @Test
+    #endif
     func heicImageProcessing() async throws {
         let url = try #require(Bundle(for: Self.self).url(forResource: "test_apple_image.heic", withExtension: nil), "Failed retrieving test asset")
         
