@@ -508,6 +508,14 @@ struct MediaUploadingPreprocessor {
             return true
         }
 
+        // iPhone HDR HEIF/HEIC assets expose their HDR payload as an auxiliary
+        // gain map. Do not run UIImageReader's full-resolution HDR decode for a
+        // regular HEIF without one: on large 12 MP SDR assets that decode is
+        // needlessly expensive and can block media processing for minutes.
+        if let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .heif) {
+            return false
+        }
+
         var configuration = UIImageReader.Configuration()
         configuration.prefersHighDynamicRange = true
         return UIImageReader(configuration: configuration).image(contentsOf: url)?.isHighDynamicRange == true
