@@ -63,6 +63,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.width == 1600)
         #expect(imageInfo.thumbnailInfo?.height == 1200)
 
+        let thumbnailURL = try #require(thumbnailURL)
         let thumbnailData = try Data(contentsOf: thumbnailURL)
         let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
         #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
@@ -507,8 +508,9 @@ final class MediaUploadingPreprocessorTests {
     
     private func compare(originalImageAt originalImageURL: URL,
                          toConvertedImageAt convertedImageURL: URL,
-                         withThumbnailAt thumbnailURL: URL,
+                         withThumbnailAt thumbnailURL: URL?,
                          preserveOriginal: Bool = false) throws {
+        let thumbnailURL = try #require(thumbnailURL, "Image thumbnail is missing")
         guard let originalImageData = try? Data(contentsOf: originalImageURL),
               let originalImage = UIImage(data: originalImageData),
               let convertedImageData = try? Data(contentsOf: convertedImageURL),
