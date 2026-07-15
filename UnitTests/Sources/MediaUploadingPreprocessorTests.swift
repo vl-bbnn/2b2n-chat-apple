@@ -32,7 +32,22 @@ final class MediaUploadingPreprocessorTests {
     #endif
     func highDynamicRangeJPEGPreservesOriginalAndGeneratesHighDynamicRangeThumbnail() async throws {
         let sourceURL = FileManager.default.temporaryDirectory.appendingPathComponent("hdr-source-\(UUID().uuidString).jpeg")
-        try makeHighDynamicRangeJPEG(at: sourceURL, size: CGSize(width: 1000, height: 800))
+        try makeHighDynamicRangeImage(at: sourceURL, size: CGSize(width: 2000, height: 1500), type: .jpeg)
+        try await assertHighDynamicRangeImageIsPreserved(sourceURL)
+    }
+
+    #if targetEnvironment(simulator)
+    @Test(.disabled())
+    #else
+    @Test
+    #endif
+    func highDynamicRangeHEICPreservesOriginalAndGeneratesHighDynamicRangeThumbnail() async throws {
+        let sourceURL = FileManager.default.temporaryDirectory.appendingPathComponent("hdr-source-\(UUID().uuidString).heic")
+        try makeHighDynamicRangeImage(at: sourceURL, size: CGSize(width: 2000, height: 1500), type: .heic)
+        try await assertHighDynamicRangeImageIsPreserved(sourceURL)
+    }
+
+    private func assertHighDynamicRangeImageIsPreserved(_ sourceURL: URL) async throws {
         let sourceData = try Data(contentsOf: sourceURL)
         appSettings.optimizeMediaUploads = true
 
@@ -43,10 +58,10 @@ final class MediaUploadingPreprocessorTests {
         }
 
         #expect(try Data(contentsOf: imageURL) == sourceData)
-        #expect(imageInfo.width == 1000)
-        #expect(imageInfo.height == 800)
-        #expect(imageInfo.thumbnailInfo?.width == 1000)
-        #expect(imageInfo.thumbnailInfo?.height == 800)
+        #expect(imageInfo.width == 2000)
+        #expect(imageInfo.height == 1500)
+        #expect(imageInfo.thumbnailInfo?.width == 1600)
+        #expect(imageInfo.thumbnailInfo?.height == 1200)
 
         let thumbnailData = try Data(contentsOf: thumbnailURL)
         let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
@@ -194,7 +209,7 @@ final class MediaUploadingPreprocessorTests {
             return
         }
         
-        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL)
+        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL, preserveOriginal: true)
         
         // Check resulting image info
         #expect(imageInfo.mimetype == "image/jpeg")
@@ -359,18 +374,18 @@ final class MediaUploadingPreprocessorTests {
             return
         }
         
-        try compare(originalImageAt: url, toConvertedImageAt: optimizedImageURL, withThumbnailAt: thumbnailURL)
+        try compare(originalImageAt: url, toConvertedImageAt: optimizedImageURL, withThumbnailAt: thumbnailURL, preserveOriginal: true)
         
         // Make sure the output file matches the image info.
-        #expect(mimeType(from: optimizedImageURL) == "image/jpeg", "Optimised HEICs should always be converted to JPEG for compatibility.")
-        #expect(optimizedImageURL.pathExtension == "jpeg", "The file extension should match the MIME type.")
+        #expect(mimeType(from: optimizedImageURL) == "image/heic", "HEIC originals should never be re-encoded.")
+        #expect(optimizedImageURL.pathExtension == "heic", "The original file extension should be preserved.")
         
         // Check optimised image info
-        #expect(optimizedImageInfo.mimetype == "image/jpeg")
-        #expect(optimizedImageInfo.blurhash == "KGD]3ns:T00#kWxFb^s:xv")
-        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_049_393, within: 100))
-        #expect(optimizedImageInfo.width == 1536)
-        #expect(optimizedImageInfo.height == 2048)
+        #expect(optimizedImageInfo.mimetype == "image/heic")
+        #expect(optimizedImageInfo.blurhash == "KGD]3ns:T00$kWxFXmt6xv")
+        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_848_525, within: 100))
+        #expect(optimizedImageInfo.width == 3024)
+        #expect(optimizedImageInfo.height == 4032)
     }
     
     @Test
@@ -467,7 +482,7 @@ final class MediaUploadingPreprocessorTests {
         isEqual(Double(lhs), Double(rhs), within: Double(tolerance))
     }
 
-    private func makeHighDynamicRangeJPEG(at url: URL, size: CGSize) throws {
+    private func makeHighDynamicRangeImage(at url: URL, size: CGSize, type: UTType) throws {
         let colorSpace = try #require(CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3))
         let image = CIImage(color: CIColor(red: 2, green: 0.5, blue: 0.25, alpha: 1))
             .cropped(to: CGRect(origin: .zero, size: size))
@@ -476,7 +491,7 @@ final class MediaUploadingPreprocessorTests {
                                                          from: image.extent,
                                                          format: .RGBAh,
                                                          colorSpace: colorSpace))
-        let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil))
         let options: [CFString: Any] = [
             kCGImageDestinationLossyCompressionQuality: 0.9,
             kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap,
@@ -490,7 +505,10 @@ final class MediaUploadingPreprocessorTests {
         abs(lhs - rhs) <= tolerance
     }
     
-    private func compare(originalImageAt originalImageURL: URL, toConvertedImageAt convertedImageURL: URL, withThumbnailAt thumbnailURL: URL) throws {
+    private func compare(originalImageAt originalImageURL: URL,
+                         toConvertedImageAt convertedImageURL: URL,
+                         withThumbnailAt thumbnailURL: URL,
+                         preserveOriginal: Bool = false) throws {
         guard let originalImageData = try? Data(contentsOf: originalImageURL),
               let originalImage = UIImage(data: originalImageData),
               let convertedImageData = try? Data(contentsOf: convertedImageURL),
@@ -498,7 +516,7 @@ final class MediaUploadingPreprocessorTests {
             fatalError()
         }
         
-        if appSettings.optimizeMediaUploads {
+        if appSettings.optimizeMediaUploads, !preserveOriginal {
             // Check that new image has been scaled within the requirements for an optimised image
             #expect(convertedImage.size.width <= MediaUploadingPreprocessor.Constants.optimizedMaxPixelSize)
             #expect(convertedImage.size.height <= MediaUploadingPreprocessor.Constants.optimizedMaxPixelSize)
@@ -509,12 +527,20 @@ final class MediaUploadingPreprocessorTests {
             #expect(originalImage.size == convertedImage.size)
         }
         
-        // Check that the GPS data has been stripped
+        if preserveOriginal {
+            #expect(convertedImageData == originalImageData)
+        }
+
+        // Check that the GPS data is preserved for original uploads and stripped otherwise.
         let originalMetadata = try metadata(from: originalImageData)
         #expect(originalMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") != nil)
         
         let convertedMetadata = try metadata(from: convertedImageData)
-        #expect(convertedMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        if preserveOriginal {
+            #expect(convertedMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") != nil)
+        } else {
+            #expect(convertedMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        }
         
         // Check that the thumbnail is generated correctly
         let thumbnailData = try Data(contentsOf: thumbnailURL)

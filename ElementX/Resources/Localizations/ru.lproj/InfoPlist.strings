@@ -3,4 +3,4 @@
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "Чтобы делиться своим текущим местоположением, необходимо разрешить Element X доступ к местоположению, когда приложение работает в фоновом режиме.";
 "NSLocationWhenInUseUsageDescription" = "Element X необходимо предоставить доступ к местоположению.";
 "NSMicrophoneUsageDescription" = "Для отправки аудиосообщений Element X необходимо предоставить доступ к микрофону.";
-"NSPhotoLibraryUsageDescription" = "Это позволяет сохранять изображения и видео в библиотеку фотографий.";
+"NSPhotoLibraryUsageDescription" = "Это позволяет отправлять оригиналы фотографий вместе с их метаданными.";

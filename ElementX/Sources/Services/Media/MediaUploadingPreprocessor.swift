@@ -7,6 +7,7 @@
 //
 
 import AVFoundation
+import CoreImage
 import ImageIO
 import MatrixRustSDK
 import UIKit
@@ -165,8 +166,8 @@ struct MediaUploadingPreprocessor {
     
     // MARK: - Private
     
-    /// Prepares an image for upload. Strips location data from it and generates a thumbnail.
-    /// Ultra HDR JPEGs are preserved byte-for-byte so their gain map stays attached.
+    /// Prepares an image for upload and generates a thumbnail. SDR images have their location data stripped.
+    /// HEIC and HDR originals are preserved byte-for-byte.
     /// - Parameters:
     ///   - url: The image URL
     ///   - type: its UTType
@@ -174,16 +175,16 @@ struct MediaUploadingPreprocessor {
     /// - Returns: Returns a `MediaInfo.image` containing the URLs for the modified image and its thumbnail plus the corresponding `ImageInfo`
     private func processImage(at url: inout URL, type: UTType, mimeType: String, maxUploadSize: UInt) -> Result<MediaInfo, MediaUploadingPreprocessorError> {
         do {
-            // Re-encoding a gain-map image as a regular JPEG destroys HDR. The input is already
-            // a private temporary copy, so keep HDR originals byte-for-byte and only create a
-            // separate, smaller HDR preview below.
+            // Re-encoding HEIC or a gain-map image changes the original image and its metadata.
+            // Keep these originals byte-for-byte and only create a separate preview below.
             let isHighDynamicRange = isHighDynamicRangeImage(at: url)
-            if !isHighDynamicRange {
+            let shouldPreserveOriginal = isHighDynamicRange || type.conforms(to: .heif)
+            if !shouldPreserveOriginal {
                 try stripLocationFromImage(at: url, type: type)
             }
             
             var mimeType = mimeType
-            if appSettings.optimizeMediaUploads, !type.conforms(to: .gif), !isHighDynamicRange {
+            if appSettings.optimizeMediaUploads, !type.conforms(to: .gif), !shouldPreserveOriginal {
                 let outputType = type.conforms(to: .png) ? UTType.png : .jpeg
                 mimeType = outputType.preferredMIMEType ?? "application/octet-stream"
                 try resizeImage(at: url, maxPixelSize: Constants.optimizedMaxPixelSize, destination: url, type: outputType)
@@ -356,9 +357,8 @@ struct MediaUploadingPreprocessor {
         let thumbnailURL = url.deletingLastPathComponent().appendingPathComponent(thumbnailFileName)
         let thumbnailMaxPixelSize = max(Constants.maximumThumbnailSize.height, Constants.maximumThumbnailSize.width)
 
-        if isHighDynamicRangeImage(at: url),
-           let hdrThumbnail = try? generateHighDynamicRangeThumbnail(at: url, destination: thumbnailURL) {
-            return hdrThumbnail
+        if isHighDynamicRangeImage(at: url) {
+            return try generateHighDynamicRangeThumbnail(at: url, destination: thumbnailURL)
         }
         
         do {
@@ -376,9 +376,86 @@ struct MediaUploadingPreprocessor {
         return .init(url: thumbnailURL, height: thumbnail.size.height, width: thumbnail.size.width, mimeType: "image/jpeg", blurhash: blurhash)
     }
 
-    /// Creates a JPEG with an ISO gain map. ImageIO decodes the source to an HDR CGImage,
-    /// scales that image, then derives a new SDR base and gain map for the encoded preview.
+    /// Creates a JPEG with a gain map. When the source already contains a gain map (notably HEIC),
+    /// its SDR base, gain map and gain-map properties are scaled together without re-deriving HDR.
     private func generateHighDynamicRangeThumbnail(at url: URL, destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+        if hasAuxiliaryGainMap(at: url) {
+            return try generateHighDynamicRangeThumbnailPreservingGainMap(at: url, destination: destination)
+        }
+
+        return try generateHighDynamicRangeThumbnailDerivingGainMap(at: url, destination: destination)
+    }
+
+    private func generateHighDynamicRangeThumbnailPreservingGainMap(at url: URL,
+                                                                    destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+        let imageOptions: [CIImageOption: Any] = [.applyOrientationProperty: true]
+        let gainMapOptions: [CIImageOption: Any] = [
+            .applyOrientationProperty: true,
+            .auxiliaryHDRGainMap: true
+        ]
+        guard let baseImage = CIImage(contentsOf: url, options: imageOptions),
+              let gainMapImage = CIImage(contentsOf: url, options: gainMapOptions),
+              !baseImage.extent.isEmpty,
+              !gainMapImage.extent.isEmpty,
+              let colorSpace = baseImage.colorSpace ?? CGColorSpace(name: CGColorSpace.displayP3) else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        let scale = min(1, Constants.highDynamicRangeThumbnailMaxPixelSize / max(baseImage.extent.width, baseImage.extent.height))
+        let targetSize = CGSize(width: max(1, floor(baseImage.extent.width * scale)),
+                                height: max(1, floor(baseImage.extent.height * scale)))
+        let targetExtent = CGRect(origin: .zero, size: targetSize)
+        let transform = CGAffineTransform(scaleX: scale, y: scale)
+        let scaledBaseImage = baseImage
+            .transformed(by: transform)
+            .cropped(to: targetExtent)
+        let scaledGainMapExtent = CGRect(x: 0,
+                                         y: 0,
+                                         width: max(1, floor(gainMapImage.extent.width * scale)),
+                                         height: max(1, floor(gainMapImage.extent.height * scale)))
+        let scaledGainMapImage = gainMapImage
+            .transformed(by: transform)
+            .cropped(to: scaledGainMapExtent)
+            .settingProperties(gainMapImage.properties)
+
+        let qualityKey = CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String)
+        var representationOptions: [CIImageRepresentationOption: Any] = [
+            qualityKey: Constants.highDynamicRangeThumbnailJPEGCompressionQuality,
+            .hdrGainMapImage: scaledGainMapImage
+        ]
+        if gainMapImage.colorSpace?.model == .rgb {
+            representationOptions[.hdrGainMapAsRGB] = true
+        }
+
+        let context = CIContext(options: [.cacheIntermediates: false])
+        defer { context.clearCaches() }
+        try? FileManager.default.removeItem(at: destination)
+        do {
+            try context.writeJPEGRepresentation(of: scaledBaseImage,
+                                                to: destination,
+                                                colorSpace: colorSpace,
+                                                options: representationOptions)
+        } catch {
+            try? FileManager.default.removeItem(at: destination)
+            throw .failedGeneratingImageThumbnail(error)
+        }
+
+        guard isHighDynamicRangeImage(at: destination) else {
+            try? FileManager.default.removeItem(at: destination)
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        let blurhash = standardDynamicRangeImage(at: destination)?.blurHash(numberOfComponents: (3, 3))
+        return .init(url: destination,
+                     height: targetSize.height,
+                     width: targetSize.width,
+                     mimeType: "image/jpeg",
+                     blurhash: blurhash)
+    }
+
+    /// Fallback only for HDR formats that don't expose an existing auxiliary gain map.
+    private func generateHighDynamicRangeThumbnailDerivingGainMap(at url: URL,
+                                                                  destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
               let sourceSize = imageSource.size else {
             throw .failedGeneratingImageThumbnail(nil)
@@ -427,13 +504,25 @@ struct MediaUploadingPreprocessor {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return false
         }
-        if CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil {
+        if hasAuxiliaryGainMap(in: imageSource) {
             return true
         }
 
         var configuration = UIImageReader.Configuration()
         configuration.prefersHighDynamicRange = true
         return UIImageReader(configuration: configuration).image(contentsOf: url)?.isHighDynamicRange == true
+    }
+
+    private func hasAuxiliaryGainMap(at url: URL) -> Bool {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return false
+        }
+        return hasAuxiliaryGainMap(in: imageSource)
+    }
+
+    private func hasAuxiliaryGainMap(in imageSource: CGImageSource) -> Bool {
+        CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
+            CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil
     }
 
     private func standardDynamicRangeImage(at url: URL) -> UIImage? {

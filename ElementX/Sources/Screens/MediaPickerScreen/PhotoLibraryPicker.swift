@@ -6,8 +6,10 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import Photos
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum PhotoLibraryPickerAction {
     case selectedMediaAtURLs([URL])
@@ -17,6 +19,7 @@ enum PhotoLibraryPickerAction {
 
 enum PhotoLibraryPickerError: Error {
     case failedLoadingFileRepresentation(Error?)
+    case failedLoadingOriginalAsset(Error?)
     case failedCopyingFile
 }
 
@@ -35,6 +38,7 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
     
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.preferredAssetRepresentationMode = .current
         configuration.selection = .ordered
         configuration.selectionLimit = switch selectionType {
         case .single:
@@ -125,8 +129,20 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
                 return nil
             }
             
+            if contentType.type.conforms(to: .image), provider.containsHEICRepresentation, result.assetIdentifier != nil {
+                guard let url = await loadOriginalHEICResource(for: result) else {
+                    Task { @MainActor in
+                        photoLibraryPicker.callback(.error(.failedLoadingOriginalAsset(nil)))
+                    }
+                    return nil
+                }
+                return url
+            }
+
+            let typeIdentifier = contentType.type.conforms(to: .image) ? UTType.image.identifier : contentType.type.identifier
+
             return await withCheckedContinuation { continuation in
-                provider.loadFileRepresentation(forTypeIdentifier: contentType.type.identifier) { [weak self] url, error in
+                provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, error in
                     guard let url else {
                         Task { @MainActor in
                             self?.photoLibraryPicker.callback(.error(.failedLoadingFileRepresentation(error)))
@@ -152,6 +168,67 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
                     }
                 }
             }
+        }
+
+        private func loadOriginalHEICResource(for result: PHPickerResult) async -> URL? {
+            guard let assetIdentifier = result.assetIdentifier,
+                  await requestPhotoLibraryAccessIfNeeded() else {
+                return nil
+            }
+
+            let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [assetIdentifier], options: nil)
+            guard let asset = fetchResult.firstObject,
+                  let resource = PHAssetResource.assetResources(for: asset).first(where: { resource in
+                      guard resource.type == .photo,
+                            let type = UTType(resource.uniformTypeIdentifier) else {
+                          return false
+                      }
+                      return type.conforms(to: .heif)
+                  }) else {
+                return nil
+            }
+
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            } catch {
+                return nil
+            }
+            let filename = (resource.originalFilename as NSString).lastPathComponent
+            guard !filename.isEmpty else {
+                try? FileManager.default.removeItem(at: directory)
+                return nil
+            }
+            let destination = directory.appendingPathComponent(filename)
+            let options = PHAssetResourceRequestOptions()
+            options.isNetworkAccessAllowed = true
+
+            return await withCheckedContinuation { continuation in
+                PHAssetResourceManager.default().writeData(for: resource, toFile: destination, options: options) { error in
+                    guard error == nil else {
+                        try? FileManager.default.removeItem(at: directory)
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    continuation.resume(returning: destination)
+                }
+            }
+        }
+
+        private func requestPhotoLibraryAccessIfNeeded() async -> Bool {
+            let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            let resolvedStatus = status == .notDetermined
+                ? await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+                : status
+            return resolvedStatus == .authorized || resolvedStatus == .limited
+        }
+    }
+}
+
+private extension NSItemProvider {
+    var containsHEICRepresentation: Bool {
+        registeredTypeIdentifiers.contains { identifier in
+            UTType(identifier)?.conforms(to: .heif) == true
         }
     }
 }
