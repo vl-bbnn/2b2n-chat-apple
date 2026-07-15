@@ -210,7 +210,7 @@ final class MediaUploadingPreprocessorTests {
             return
         }
         
-        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL, preserveOriginal: true)
+        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL)
         
         // Check resulting image info
         #expect(imageInfo.mimetype == "image/jpeg")
@@ -347,7 +347,7 @@ final class MediaUploadingPreprocessorTests {
             return
         }
         
-        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL)
+        try compare(originalImageAt: url, toConvertedImageAt: convertedImageURL, withThumbnailAt: thumbnailURL, preserveOriginal: true)
         
         // Make sure the output file matches the image info.
         #expect(mimeType(from: convertedImageURL) == "image/heic", "Unoptimised HEICs should always be sent as is.")
