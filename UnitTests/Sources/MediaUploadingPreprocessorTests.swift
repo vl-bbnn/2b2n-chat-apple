@@ -63,8 +63,8 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.width == 1600)
         #expect(imageInfo.thumbnailInfo?.height == 1200)
 
-        let thumbnailURL = try #require(thumbnailURL)
-        let thumbnailData = try Data(contentsOf: thumbnailURL)
+        let resolvedThumbnailURL = try #require(thumbnailURL)
+        let thumbnailData = try Data(contentsOf: resolvedThumbnailURL)
         let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
         #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
         var configuration = UIImageReader.Configuration()
@@ -510,7 +510,7 @@ final class MediaUploadingPreprocessorTests {
                          toConvertedImageAt convertedImageURL: URL,
                          withThumbnailAt thumbnailURL: URL?,
                          preserveOriginal: Bool = false) throws {
-        let thumbnailURL = try #require(thumbnailURL, "Image thumbnail is missing")
+        let resolvedThumbnailURL = try #require(thumbnailURL, "Image thumbnail is missing")
         guard let originalImageData = try? Data(contentsOf: originalImageURL),
               let originalImage = UIImage(data: originalImageData),
               let convertedImageData = try? Data(contentsOf: convertedImageURL),
@@ -545,7 +545,7 @@ final class MediaUploadingPreprocessorTests {
         }
         
         // Check that the thumbnail is generated correctly
-        let thumbnailData = try Data(contentsOf: thumbnailURL)
+        let thumbnailData = try Data(contentsOf: resolvedThumbnailURL)
         let thumbnail = try #require(UIImage(data: thumbnailData), "Invalid thumbnail")
         
         if thumbnail.size.width > thumbnail.size.height {
