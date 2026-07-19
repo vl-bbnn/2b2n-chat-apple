@@ -45,15 +45,25 @@ struct AuthenticationServiceTests {
     }
     
     @Test
-    mutating func configureLoginWithOAuth() async throws {
+    mutating func configureLoginWithOAuthAndPassword() async throws {
         try await setup()
-        
+
         try await service.configure(for: "matrix.org", flow: .login).get()
-        
+
         #expect(service.flow == .login)
-        #expect(service.homeserver.value == .mockMatrixDotOrg)
+        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
     }
-    
+
+    @Test
+    mutating func configureLoginWithOAuthOnly() async throws {
+        try await setup(serverAddress: "company.com")
+
+        try await service.configure(for: "company.com", flow: .login).get()
+
+        #expect(service.flow == .login)
+        #expect(service.homeserver.value == .mockOAuth)
+    }
+
     @Test
     mutating func configureRegisterWithOAuth() async throws {
         try await setup()

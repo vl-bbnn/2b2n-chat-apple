@@ -34,7 +34,7 @@ struct ServerSelectionScreenViewModelTests {
         
         // Then selection should succeed.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(service.homeserver.value == .mockMatrixDotOrg)
+        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
     }
     
     @Test

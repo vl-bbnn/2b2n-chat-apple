@@ -59,7 +59,7 @@ final class AuthenticationStartScreenViewModelTests {
     @Test
     func provisionedOAuthState() async throws {
         // Given a view model that has been provisioned with a server that supports OAuth.
-        await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"))
+        await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"), supportsPasswordLogin: false)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
@@ -76,6 +76,24 @@ final class AuthenticationStartScreenViewModelTests {
         #expect(authenticationService.homeserver.value.loginMode == .oAuth(supportsCreatePrompt: false))
     }
     
+    @Test
+    func provisionedLoginPrefersPasswordState() async throws {
+        // Given a view model that has been provisioned with a server that supports OAuth and password login.
+        await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"))
+        #expect(authenticationService.homeserver.value.loginMode == .unknown)
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
+
+        // When tapping the login button the authentication service should be used and the screen
+        // should request to continue with password login.
+        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPasswordLoginHint("user@company.com") }
+        context.send(viewAction: .login)
+        try await deferred.fulfill()
+
+        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
+        #expect(authenticationService.homeserver.value.loginMode == .password)
+    }
+
     @Test
     func provisionedPasswordState() async throws {
         // Given a view model that has been provisioned with a server that does not support OAuth.
@@ -98,7 +116,7 @@ final class AuthenticationStartScreenViewModelTests {
     func singleProviderOAuthState() async throws {
         // Given a view model that for an app that only allows the use of a single provider that supports OAuth.
         setAllowedAccountProviders(["company.com"])
-        await setupViewModel()
+        await setupViewModel(supportsPasswordLogin: false)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
@@ -140,7 +158,7 @@ final class AuthenticationStartScreenViewModelTests {
     func classicAppAccount() async throws {
         // Given a view model with a Classic app account whose server name resolves successfully.
         let classicAppAccount = makeClassicAppAccount()
-        await setupViewModel(classicAppAccount: classicAppAccount)
+        await setupViewModel(classicAppAccount: classicAppAccount, supportsPasswordLogin: false)
         guard case .welcomeBack(let account) = context.viewState.classicAppMode else {
             Issue.record("Expected classicAppMode to be .welcomeBack")
             return
@@ -164,7 +182,7 @@ final class AuthenticationStartScreenViewModelTests {
         // Given a view model where the Classic app account's server name has no well-known file.
         let classicAppAccount = makeClassicAppAccount(serverName: "unknown-server.org",
                                                       homeserverURL: "https://matrix.company.com")
-        await setupViewModel(classicAppAccount: classicAppAccount)
+        await setupViewModel(classicAppAccount: classicAppAccount, supportsPasswordLogin: false)
         guard case .welcomeBack(let account) = context.viewState.classicAppMode else {
             Issue.record("Expected classicAppMode to be .welcomeBack")
             return
@@ -241,7 +259,7 @@ final class AuthenticationStartScreenViewModelTests {
     func classicAppAccountRequiresBackup() async throws {
         // Given a view model with a Classic app account that requires backup before signing in.
         let classicAppAccount = makeClassicAppAccount()
-        await setupViewModel(classicAppAccount: classicAppAccount, availableSecrets: .requiresBackup)
+        await setupViewModel(classicAppAccount: classicAppAccount, supportsPasswordLogin: false, availableSecrets: .requiresBackup)
         guard case .welcomeBack(let account) = context.viewState.classicAppMode else {
             Issue.record("Expected classicAppMode to be .welcomeBack")
             return
@@ -366,6 +384,15 @@ extension AuthenticationStartScreenViewModelAction {
         switch self {
         case .loginDirectlyWithPassword: true
         default: false
+        }
+    }
+
+    func isLoginDirectlyWithPasswordLoginHint(_ expectedLoginHint: String?) -> Bool {
+        switch self {
+        case .loginDirectlyWithPassword(let loginHint):
+            loginHint == expectedLoginHint
+        default:
+            false
         }
     }
 }

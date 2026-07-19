@@ -31,7 +31,7 @@ final class ServerConfirmationScreenViewModelTests {
     // MARK: - Confirmation mode
     
     @Test
-    func confirmLoginWithoutConfiguration() async throws {
+    func confirmLoginPrefersPasswordWithoutConfiguration() async throws {
         // Given a view model for login using a service that hasn't been configured.
         setupViewModel(authenticationFlow: .login)
         #expect(service.homeserver.value.loginMode == .unknown)
@@ -40,39 +40,37 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOAuth }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
-        // Then a call to configure service should be made.
+        // Then a call to configure service should be made, but not for the OAuth URL.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
-        #expect(service.homeserver.value.loginMode == .oAuth(supportsCreatePrompt: true))
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
+        #expect(service.homeserver.value.loginMode == .password)
     }
     
     @Test
-    func confirmLoginAfterConfiguration() async throws {
+    func confirmLoginPrefersPasswordAfterConfiguration() async throws {
         // Given a view model for login using a service that has already been configured (via the server selection screen).
         setupViewModel(authenticationFlow: .login)
         guard case .success = await service.configure(for: viewModel.state.homeserverAddress, flow: .login) else {
             Issue.record("The configuration should succeed.")
             return
         }
-        #expect(service.homeserver.value.loginMode == .oAuth(supportsCreatePrompt: true))
+        #expect(service.homeserver.value.loginMode == .password)
         #expect(context.viewState.mode == .confirmation(service.homeserver.value.address))
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOAuth }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
-        // Then the configured homeserver should be used and no additional client should be built.
+        // Then the configured homeserver should be used and no additional client should be built, nor a call to get the OAuth URL.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
     }
     
     @Test
@@ -223,7 +221,7 @@ final class ServerConfirmationScreenViewModelTests {
     // MARK: - Picker mode
     
     @Test
-    func pickerWithoutConfiguration() async throws {
+    func pickerPrefersPasswordWithoutConfiguration() async throws {
         // Given a view model for login using a service that hasn't been configured.
         setupViewModel(authenticationFlow: .login, restrictedFlow: true)
         #expect(service.homeserver.value.loginMode == .unknown)
@@ -232,39 +230,37 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOAuth }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
-        // Then a call to configure service should be made.
+        // Then a call to configure service should be made, but not for the OAuth URL.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
-        #expect(service.homeserver.value.loginMode == .oAuth(supportsCreatePrompt: true))
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
+        #expect(service.homeserver.value.loginMode == .password)
     }
     
     @Test
-    func pickerAfterConfiguration() async throws {
+    func pickerPrefersPasswordAfterConfiguration() async throws {
         // Given a view model for login using a service that has already been configured (via the server selection screen).
         setupViewModel(authenticationFlow: .login, restrictedFlow: true)
         guard case .success = await service.configure(for: appSettings.accountProviders[0], flow: .login) else {
             Issue.record("The configuration should succeed.")
             return
         }
-        #expect(service.homeserver.value.loginMode == .oAuth(supportsCreatePrompt: true))
+        #expect(service.homeserver.value.loginMode == .password)
         #expect(context.viewState.mode == .picker(appSettings.accountProviders))
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOAuth }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
-        // Then the configured homeserver should be used and no additional client should be built.
+        // Then the configured homeserver should be used and no additional client should be built, nor a call to get the OAuth URL.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
+        #expect(client.urlForOauthOauthConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
     }
     
     @Test
