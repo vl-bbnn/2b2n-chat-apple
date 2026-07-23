@@ -91,9 +91,8 @@ include:
 packages:
   # Element/Matrix dependencies
   MatrixRustSDK:
-    url: https://github.com/element-hq/matrix-rust-components-swift
-    exactVersion: 26.06.30
-    # path: ../matrix-rust-sdk
+    url: https://github.com/vl-bbnn/matrix-rust-sdk
+    revision: 7bd31d76af86f90c8e5fa140a4c432cd257fcb77
   Compound:
     path: compound-ios
   BuildExtensions:

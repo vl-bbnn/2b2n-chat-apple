@@ -140,6 +140,10 @@ final nonisolated class EventTimelineItemProxy: Sendable {
         let debugInfo = item.lazyProvider.debugInfo()
         return TimelineItemDebugInfo(model: debugInfo.model, originalJSON: debugInfo.originalJson, latestEditJSON: debugInfo.latestEditJson)
     }
+
+    var latestJSON: String? {
+        item.lazyProvider.latestJson()
+    }
     
     var shieldState: ShieldState? {
         item.lazyProvider.getShields(strict: false)

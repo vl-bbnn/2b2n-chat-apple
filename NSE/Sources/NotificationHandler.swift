@@ -137,6 +137,7 @@ nonisolated class NotificationHandler {
                  .callInvite,
                  .callHangup,
                  .callCandidates,
+                 .beacon,
                  .keyVerificationReady,
                  .keyVerificationStart,
                  .keyVerificationCancel,

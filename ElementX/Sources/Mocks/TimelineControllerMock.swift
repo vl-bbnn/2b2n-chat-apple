@@ -129,11 +129,12 @@ struct TimelineControllerMockConfiguration {
             return .success(())
         }
         
-        sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure = { [weak self, timelineProxy] url, thumbnailURL, imageInfo, caption, requestHandle in
+        sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure = { [weak self, timelineProxy] url, thumbnailURL, mediumPreview, imageInfo, caption, requestHandle in
             self?.callbacks.send(.messageSentOrEdited)
             if let timelineProxy {
                 return await timelineProxy.sendImage(url: url,
                                                      thumbnailURL: thumbnailURL,
+                                                     mediumPreview: mediumPreview,
                                                      imageInfo: imageInfo,
                                                      caption: caption,
                                                      requestHandle: requestHandle).mapError(TimelineControllerError.timelineProxyError)

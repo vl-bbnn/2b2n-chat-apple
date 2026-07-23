@@ -339,11 +339,13 @@ class TimelineController: TimelineControllerProtocol {
     
     func sendImage(url: URL,
                    thumbnailURL: URL?,
+                   mediumPreview: ImagePreviewInfo?,
                    imageInfo: MatrixRustSDK.ImageInfo,
                    caption: String?,
                    requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError> {
         switch await activeTimeline.sendImage(url: url,
                                               thumbnailURL: thumbnailURL,
+                                              mediumPreview: mediumPreview,
                                               imageInfo: imageInfo,
                                               caption: caption,
                                               requestHandle: requestHandle).mapError(TimelineControllerError.timelineProxyError) {

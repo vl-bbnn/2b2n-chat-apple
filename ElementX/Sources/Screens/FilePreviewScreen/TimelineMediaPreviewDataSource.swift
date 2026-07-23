@@ -155,6 +155,8 @@ enum TimelineMediaPreviewItem: Equatable {
         var fileHandle: MediaFileHandleProxy? {
             didSet { updatePreviewItemValues() }
         }
+
+        var originalFileHandle: MediaFileHandleProxy?
         
         var downloadError: Error?
         
@@ -234,6 +236,11 @@ enum TimelineMediaPreviewItem: Equatable {
             default:
                 nil
             }
+        }
+
+        var mediumPreviewMediaSource: MediaSourceProxy? {
+            guard let imageItem = timelineItem as? ImageRoomTimelineItem else { return nil }
+            return imageItem.content.mediumPreviewInfo?.source
         }
         
         var thumbnailMediaSource: MediaSourceProxy? {

@@ -296,6 +296,7 @@ final class TimelineProxy: TimelineProxyProtocol {
     
     func sendImage(url: URL,
                    thumbnailURL: URL?,
+                   mediumPreview: ImagePreviewInfo?,
                    imageInfo: ImageInfo,
                    caption: String?,
                    requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineProxyError> {
@@ -308,7 +309,9 @@ final class TimelineProxy: TimelineProxyProtocol {
                                                               mentions: nil,
                                                               inReplyTo: nil),
                                                 thumbnailSource: thumbnailURL.map { .file(filename: $0.path(percentEncoded: false)) },
-                                                imageInfo: imageInfo)
+                                                mediumPreviewSource: mediumPreview.map { .file(filename: $0.url.path(percentEncoded: false)) },
+                                                imageInfo: imageInfo,
+                                                mediumPreviewInfo: mediumPreview?.info)
             
             requestHandle(handle)
             

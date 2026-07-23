@@ -52,7 +52,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
 
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: sourceURL, maxUploadSize: maxUploadSize),
-              case let .image(imageURL, thumbnailURL, imageInfo) = result else {
+              case let .image(imageURL, thumbnailURL, mediumPreview, imageInfo) = result else {
             Issue.record("Failed processing HDR asset")
             return
         }
@@ -60,18 +60,30 @@ final class MediaUploadingPreprocessorTests {
         #expect(try Data(contentsOf: imageURL) == sourceData)
         #expect(imageInfo.width == 2000)
         #expect(imageInfo.height == 1500)
-        #expect(imageInfo.thumbnailInfo?.width == 1600)
-        #expect(imageInfo.thumbnailInfo?.height == 1200)
+        #expect(imageInfo.thumbnailInfo?.width == 800)
+        #expect(imageInfo.thumbnailInfo?.height == 600)
+        #expect(mediumPreview?.info.width == 1600)
+        #expect(mediumPreview?.info.height == 1200)
 
         let resolvedThumbnailURL = try #require(thumbnailURL)
         let thumbnailData = try Data(contentsOf: resolvedThumbnailURL)
         let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
+            CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil)
+        #expect(thumbnailData.range(of: Data("http://ns.google.com/photos/1.0/container/".utf8)) != nil)
+        #expect(thumbnailData.range(of: Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)) != nil)
+        #expect(thumbnailData.range(of: Data("Item:Semantic=\"Primary\"".utf8)) != nil)
+        #expect(thumbnailData.range(of: Data("Item:Semantic=\"GainMap\"".utf8)) != nil)
+
+        let startOfImage = Data([0xFF, 0xD8])
+        let auxiliaryImageRange = try #require(thumbnailData.range(of: startOfImage, options: .backwards))
+        let auxiliaryImageLength = thumbnailData.count - auxiliaryImageRange.lowerBound
+        #expect(thumbnailData.range(of: Data("Item:Length=\"\(auxiliaryImageLength)\"".utf8)) != nil)
         var configuration = UIImageReader.Configuration()
         configuration.prefersHighDynamicRange = true
         #expect(await UIImageReader(configuration: configuration).image(data: thumbnailData)?.isHighDynamicRange == true)
     }
-    
+
     @Test
     func audioFileProcessing() async throws {
         let url = try #require(Bundle(for: Self.self).url(forResource: "test_audio.mp3", withExtension: nil), "Failed retrieving test asset")
@@ -205,7 +217,7 @@ final class MediaUploadingPreprocessorTests {
         let url = try #require(Bundle(for: Self.self).url(forResource: "landscape_test_image.jpg", withExtension: nil), "Failed retrieving test asset")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, thumbnailURL, imageInfo) = result else {
+              case let .image(convertedImageURL, thumbnailURL, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -229,7 +241,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, thumbnailURL, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }
@@ -249,7 +261,7 @@ final class MediaUploadingPreprocessorTests {
         let url = try #require(Bundle(for: Self.self).url(forResource: "portrait_test_image.jpg", withExtension: nil), "Failed retrieving test asset")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, thumbnailURL, imageInfo) = result else {
+              case let .image(convertedImageURL, thumbnailURL, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -273,7 +285,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, thumbnailURL, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }
@@ -293,7 +305,7 @@ final class MediaUploadingPreprocessorTests {
         let url = try #require(Bundle(for: Self.self).url(forResource: "test_image.png", withExtension: nil), "Failed retrieving test asset")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, _, imageInfo) = result else {
+              case let .image(convertedImageURL, _, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -319,7 +331,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, _, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, _, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }
@@ -347,7 +359,7 @@ final class MediaUploadingPreprocessorTests {
         let url = try #require(Bundle(for: Self.self).url(forResource: "test_apple_image.heic", withExtension: nil), "Failed retrieving test asset")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, thumbnailURL, imageInfo) = result else {
+              case let .image(convertedImageURL, thumbnailURL, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -375,7 +387,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, thumbnailURL, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }
@@ -401,7 +413,7 @@ final class MediaUploadingPreprocessorTests {
         let originalSize = try #require(originalSizeValue > 0 ? originalSizeValue : nil, "File size must be greater than zero")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, _, imageInfo) = result else {
+              case let .image(convertedImageURL, _, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -427,7 +439,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, _, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, _, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }
@@ -449,7 +461,7 @@ final class MediaUploadingPreprocessorTests {
         let url = try #require(Bundle(for: Self.self).url(forResource: "test_rotated_image.jpg", withExtension: nil), "Failed retrieving test asset")
         
         guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(convertedImageURL, thumbnailURL, imageInfo) = result else {
+              case let .image(convertedImageURL, thumbnailURL, _, imageInfo) = result else {
             Issue.record("Failed processing asset")
             return
         }
@@ -469,7 +481,7 @@ final class MediaUploadingPreprocessorTests {
         appSettings.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
-              case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
+              case let .image(optimizedImageURL, thumbnailURL, _, optimizedImageInfo) = optimizedResult else {
             Issue.record("Failed processing asset")
             return
         }

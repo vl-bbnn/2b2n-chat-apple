@@ -129,8 +129,15 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
                 return nil
             }
             
-            if contentType.type.conforms(to: .image), provider.containsHEICRepresentation, result.assetIdentifier != nil {
-                guard let url = await loadOriginalHEICResource(for: result) else {
+            // PHPicker's `loadFileRepresentation` is allowed to return a rendered
+            // representation. For an image that came from Apple Photos this can
+            // flatten an ISO/Apple gain map and rewrite GPS/ICC metadata, even when
+            // the asset itself still contains the original resource. Always read
+            // the original PHAsset resource when an asset identifier is available.
+            // This is important for both HEIC and JPEG/R (including Android Ultra
+            // HDR JPEGs saved in Apple Photos).
+            if contentType.type.conforms(to: .image), result.assetIdentifier != nil {
+                guard let url = await loadOriginalPhotoResource(for: result) else {
                     Task { @MainActor in
                         photoLibraryPicker.callback(.error(.failedLoadingOriginalAsset(nil)))
                     }
@@ -170,7 +177,7 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
             }
         }
 
-        private func loadOriginalHEICResource(for result: PHPickerResult) async -> URL? {
+        private func loadOriginalPhotoResource(for result: PHPickerResult) async -> URL? {
             guard let assetIdentifier = result.assetIdentifier,
                   await requestPhotoLibraryAccessIfNeeded() else {
                 return nil
@@ -179,11 +186,8 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
             let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [assetIdentifier], options: nil)
             guard let asset = fetchResult.firstObject,
                   let resource = PHAssetResource.assetResources(for: asset).first(where: { resource in
-                      guard resource.type == .photo,
-                            let type = UTType(resource.uniformTypeIdentifier) else {
-                          return false
-                      }
-                      return type.conforms(to: .heif)
+                      resource.type == .photo &&
+                          UTType(resource.uniformTypeIdentifier)?.conforms(to: .image) == true
                   }) else {
                 return nil
             }
@@ -221,14 +225,6 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
                 ? await PHPhotoLibrary.requestAuthorization(for: .readWrite)
                 : status
             return resolvedStatus == .authorized || resolvedStatus == .limited
-        }
-    }
-}
-
-private extension NSItemProvider {
-    var containsHEICRepresentation: Bool {
-        registeredTypeIdentifiers.contains { identifier in
-            UTType(identifier)?.conforms(to: .heif) == true
         }
     }
 }

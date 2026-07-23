@@ -12788,30 +12788,30 @@ nonisolated class TimelineControllerMock: TimelineControllerProtocol, @unchecked
     }
     //MARK: - sendImage
 
-    private let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock = NSLock()
-    private nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount = 0
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount: Int {
-        get { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount } }
-        set { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount = newValue } }
+    private let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock = NSLock()
+    private nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount = 0
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount: Int {
+        get { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount } }
+        set { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount = newValue } }
     }
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCalled: Bool {
-        return sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount > 0
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCalled: Bool {
+        return sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount > 0
     }
 
-    private let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock = NSLock()
-    private nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue: Result<Void, TimelineControllerError>!
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValue: Result<Void, TimelineControllerError>! {
-        get { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue } }
-        set { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue = newValue } }
+    private let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock = NSLock()
+    private nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue: Result<Void, TimelineControllerError>!
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValue: Result<Void, TimelineControllerError>! {
+        get { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue } }
+        set { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue = newValue } }
     }
-    nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure: ((URL, URL?, ImageInfo, String?, @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError>)?
+    nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure: ((URL, URL?, ImagePreviewInfo?, ImageInfo, String?, @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError>)?
 
-    @concurrent func sendImage(url: URL, thumbnailURL: URL?, imageInfo: ImageInfo, caption: String?, requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError> {
-        sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount += 1 }
-        if let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure = sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure {
-            return await sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure(url, thumbnailURL, imageInfo, caption, requestHandle)
+    @concurrent func sendImage(url: URL, thumbnailURL: URL?, mediumPreview: ImagePreviewInfo?, imageInfo: ImageInfo, caption: String?, requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError> {
+        sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount += 1 }
+        if let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure = sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure {
+            return await sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure(url, thumbnailURL, mediumPreview, imageInfo, caption, requestHandle)
         } else {
-            return sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValue
+            return sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValue
         }
     }
     //MARK: - sendLocation
@@ -13543,30 +13543,30 @@ nonisolated class TimelineProxyMock: TimelineProxyProtocol, @unchecked Sendable 
     }
     //MARK: - sendImage
 
-    private let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock = NSLock()
-    private nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount = 0
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount: Int {
-        get { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount } }
-        set { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount = newValue } }
+    private let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock = NSLock()
+    private nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount = 0
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount: Int {
+        get { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount } }
+        set { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount = newValue } }
     }
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCalled: Bool {
-        return sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount > 0
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCalled: Bool {
+        return sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount > 0
     }
 
-    private let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock = NSLock()
-    private nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue: Result<Void, TimelineProxyError>!
-    var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValue: Result<Void, TimelineProxyError>! {
-        get { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue } }
-        set { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingReturnValue = newValue } }
+    private let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock = NSLock()
+    private nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue: Result<Void, TimelineProxyError>!
+    var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValue: Result<Void, TimelineProxyError>! {
+        get { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue } }
+        set { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValueLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingReturnValue = newValue } }
     }
-    nonisolated(unsafe) var sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure: ((URL, URL?, ImageInfo, String?, @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineProxyError>)?
+    nonisolated(unsafe) var sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure: ((URL, URL?, ImagePreviewInfo?, ImageInfo, String?, @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineProxyError>)?
 
-    @concurrent func sendImage(url: URL, thumbnailURL: URL?, imageInfo: ImageInfo, caption: String?, requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineProxyError> {
-        sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLImageInfoCaptionRequestHandleUnderlyingCallsCount += 1 }
-        if let sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure = sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure {
-            return await sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure(url, thumbnailURL, imageInfo, caption, requestHandle)
+    @concurrent func sendImage(url: URL, thumbnailURL: URL?, mediumPreview: ImagePreviewInfo?, imageInfo: ImageInfo, caption: String?, requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineProxyError> {
+        sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCountLock.withLock { sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleUnderlyingCallsCount += 1 }
+        if let sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure = sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure {
+            return await sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure(url, thumbnailURL, mediumPreview, imageInfo, caption, requestHandle)
         } else {
-            return sendImageUrlThumbnailURLImageInfoCaptionRequestHandleReturnValue
+            return sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleReturnValue
         }
     }
     //MARK: - sendLocation

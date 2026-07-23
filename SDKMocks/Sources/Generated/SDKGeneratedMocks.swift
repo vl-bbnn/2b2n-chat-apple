@@ -6,6 +6,21 @@
 
 import Foundation
 
+open class BackupSecretsSDKMock: MatrixRustSDK.BackupSecrets, @unchecked Sendable {
+    public init() {
+        super.init(noHandle: .init())
+    }
+
+    public required init(unsafeFromHandle handle: UInt64) {
+        fatalError("init(unsafeFromHandle:) has not been implemented")
+    }
+
+    fileprivate var handle: UInt64 {
+        get { return underlyingHandle }
+        set(value) { underlyingHandle = value }
+    }
+    fileprivate var underlyingHandle: UInt64!
+}
 open class CheckCodeSenderSDKMock: MatrixRustSDK.CheckCodeSender, @unchecked Sendable {
     public init() {
         super.init(noHandle: .init())
@@ -403,6 +418,28 @@ open class ClientSDKMock: MatrixRustSDK.Client, @unchecked Sendable {
         clearCachesSyncServiceReceivedSyncService = syncService
         clearCachesSyncServiceReceivedInvocationsLock.withLock { clearCachesSyncServiceUnderlyingReceivedInvocations.append(syncService) }
         try await clearCachesSyncServiceClosure?(syncService)
+    }
+
+    //MARK: - clearUserStatus
+
+    open var clearUserStatusThrowableError: Error?
+    private let clearUserStatusCallsCountLock = NSLock()
+    private var clearUserStatusUnderlyingCallsCount = 0
+    open var clearUserStatusCallsCount: Int {
+        get { clearUserStatusCallsCountLock.withLock { clearUserStatusUnderlyingCallsCount } }
+        set { clearUserStatusCallsCountLock.withLock { clearUserStatusUnderlyingCallsCount = newValue } }
+    }
+    open var clearUserStatusCalled: Bool {
+        return clearUserStatusCallsCount > 0
+    }
+    open var clearUserStatusClosure: (() async throws -> Void)?
+
+    open override func clearUserStatus() async throws {
+        if let error = clearUserStatusThrowableError {
+            throw error
+        }
+        clearUserStatusCallsCountLock.withLock { clearUserStatusUnderlyingCallsCount += 1 }
+        try await clearUserStatusClosure?()
     }
 
     //MARK: - contentScanner
@@ -1795,6 +1832,39 @@ open class ClientSDKMock: MatrixRustSDK.Client, @unchecked Sendable {
             return try await isRoomAliasAvailableAliasClosure(alias)
         } else {
             return isRoomAliasAvailableAliasReturnValue
+        }
+    }
+
+    //MARK: - isUserStatusSupported
+
+    open var isUserStatusSupportedThrowableError: Error?
+    private let isUserStatusSupportedCallsCountLock = NSLock()
+    private var isUserStatusSupportedUnderlyingCallsCount = 0
+    open var isUserStatusSupportedCallsCount: Int {
+        get { isUserStatusSupportedCallsCountLock.withLock { isUserStatusSupportedUnderlyingCallsCount } }
+        set { isUserStatusSupportedCallsCountLock.withLock { isUserStatusSupportedUnderlyingCallsCount = newValue } }
+    }
+    open var isUserStatusSupportedCalled: Bool {
+        return isUserStatusSupportedCallsCount > 0
+    }
+
+    private let isUserStatusSupportedReturnValueLock = NSLock()
+    open var isUserStatusSupportedUnderlyingReturnValue: Bool!
+    open var isUserStatusSupportedReturnValue: Bool! {
+        get { isUserStatusSupportedReturnValueLock.withLock { isUserStatusSupportedUnderlyingReturnValue } }
+        set { isUserStatusSupportedReturnValueLock.withLock { isUserStatusSupportedUnderlyingReturnValue = newValue } }
+    }
+    open var isUserStatusSupportedClosure: (() async throws -> Bool)?
+
+    open override func isUserStatusSupported() async throws -> Bool {
+        if let error = isUserStatusSupportedThrowableError {
+            throw error
+        }
+        isUserStatusSupportedCallsCountLock.withLock { isUserStatusSupportedUnderlyingCallsCount += 1 }
+        if let isUserStatusSupportedClosure = isUserStatusSupportedClosure {
+            return try await isUserStatusSupportedClosure()
+        } else {
+            return isUserStatusSupportedReturnValue
         }
     }
 
@@ -3230,6 +3300,42 @@ open class ClientSDKMock: MatrixRustSDK.Client, @unchecked Sendable {
         try await setPusherIdentifiersKindAppDisplayNameDeviceDisplayNameProfileTagLangAppendClosure?(identifiers, kind, appDisplayName, deviceDisplayName, profileTag, lang, append)
     }
 
+    //MARK: - setUserStatus
+
+    open var setUserStatusStatusThrowableError: Error?
+    private let setUserStatusStatusCallsCountLock = NSLock()
+    private var setUserStatusStatusUnderlyingCallsCount = 0
+    open var setUserStatusStatusCallsCount: Int {
+        get { setUserStatusStatusCallsCountLock.withLock { setUserStatusStatusUnderlyingCallsCount } }
+        set { setUserStatusStatusCallsCountLock.withLock { setUserStatusStatusUnderlyingCallsCount = newValue } }
+    }
+    open var setUserStatusStatusCalled: Bool {
+        return setUserStatusStatusCallsCount > 0
+    }
+    private let setUserStatusStatusReceivedStatusLock = NSLock()
+    private var setUserStatusStatusUnderlyingReceivedStatus: UserStatus?
+    open var setUserStatusStatusReceivedStatus: UserStatus? {
+        get { setUserStatusStatusReceivedStatusLock.withLock { setUserStatusStatusUnderlyingReceivedStatus } }
+        set { setUserStatusStatusReceivedStatusLock.withLock { setUserStatusStatusUnderlyingReceivedStatus = newValue } }
+    }
+    private let setUserStatusStatusReceivedInvocationsLock = NSLock()
+    private var setUserStatusStatusUnderlyingReceivedInvocations: [UserStatus] = []
+    open var setUserStatusStatusReceivedInvocations: [UserStatus] {
+        get { setUserStatusStatusReceivedInvocationsLock.withLock { setUserStatusStatusUnderlyingReceivedInvocations } }
+        set { setUserStatusStatusReceivedInvocationsLock.withLock { setUserStatusStatusUnderlyingReceivedInvocations = newValue } }
+    }
+    open var setUserStatusStatusClosure: ((UserStatus) async throws -> Void)?
+
+    open override func setUserStatus(status: UserStatus) async throws {
+        if let error = setUserStatusStatusThrowableError {
+            throw error
+        }
+        setUserStatusStatusCallsCountLock.withLock { setUserStatusStatusUnderlyingCallsCount += 1 }
+        setUserStatusStatusReceivedStatus = status
+        setUserStatusStatusReceivedInvocationsLock.withLock { setUserStatusStatusUnderlyingReceivedInvocations.append(status) }
+        try await setUserStatusStatusClosure?(status)
+    }
+
     //MARK: - setUtdDelegate
 
     open var setUtdDelegateUtdDelegateThrowableError: Error?
@@ -3548,6 +3654,53 @@ open class ClientSDKMock: MatrixRustSDK.Client, @unchecked Sendable {
             return try subscribeToOwnBeaconInfoUpdatesListenerClosure(listener)
         } else {
             return subscribeToOwnBeaconInfoUpdatesListenerReturnValue
+        }
+    }
+
+    //MARK: - subscribeToOwnProfile
+
+    open var subscribeToOwnProfileListenerThrowableError: Error?
+    private let subscribeToOwnProfileListenerCallsCountLock = NSLock()
+    private var subscribeToOwnProfileListenerUnderlyingCallsCount = 0
+    open var subscribeToOwnProfileListenerCallsCount: Int {
+        get { subscribeToOwnProfileListenerCallsCountLock.withLock { subscribeToOwnProfileListenerUnderlyingCallsCount } }
+        set { subscribeToOwnProfileListenerCallsCountLock.withLock { subscribeToOwnProfileListenerUnderlyingCallsCount = newValue } }
+    }
+    open var subscribeToOwnProfileListenerCalled: Bool {
+        return subscribeToOwnProfileListenerCallsCount > 0
+    }
+    private let subscribeToOwnProfileListenerReceivedListenerLock = NSLock()
+    private var subscribeToOwnProfileListenerUnderlyingReceivedListener: ProfileListener?
+    open var subscribeToOwnProfileListenerReceivedListener: ProfileListener? {
+        get { subscribeToOwnProfileListenerReceivedListenerLock.withLock { subscribeToOwnProfileListenerUnderlyingReceivedListener } }
+        set { subscribeToOwnProfileListenerReceivedListenerLock.withLock { subscribeToOwnProfileListenerUnderlyingReceivedListener = newValue } }
+    }
+    private let subscribeToOwnProfileListenerReceivedInvocationsLock = NSLock()
+    private var subscribeToOwnProfileListenerUnderlyingReceivedInvocations: [ProfileListener] = []
+    open var subscribeToOwnProfileListenerReceivedInvocations: [ProfileListener] {
+        get { subscribeToOwnProfileListenerReceivedInvocationsLock.withLock { subscribeToOwnProfileListenerUnderlyingReceivedInvocations } }
+        set { subscribeToOwnProfileListenerReceivedInvocationsLock.withLock { subscribeToOwnProfileListenerUnderlyingReceivedInvocations = newValue } }
+    }
+
+    private let subscribeToOwnProfileListenerReturnValueLock = NSLock()
+    open var subscribeToOwnProfileListenerUnderlyingReturnValue: TaskHandle!
+    open var subscribeToOwnProfileListenerReturnValue: TaskHandle! {
+        get { subscribeToOwnProfileListenerReturnValueLock.withLock { subscribeToOwnProfileListenerUnderlyingReturnValue } }
+        set { subscribeToOwnProfileListenerReturnValueLock.withLock { subscribeToOwnProfileListenerUnderlyingReturnValue = newValue } }
+    }
+    open var subscribeToOwnProfileListenerClosure: ((ProfileListener) throws -> TaskHandle)?
+
+    open override func subscribeToOwnProfile(listener: ProfileListener) throws -> TaskHandle {
+        if let error = subscribeToOwnProfileListenerThrowableError {
+            throw error
+        }
+        subscribeToOwnProfileListenerCallsCountLock.withLock { subscribeToOwnProfileListenerUnderlyingCallsCount += 1 }
+        subscribeToOwnProfileListenerReceivedListener = listener
+        subscribeToOwnProfileListenerReceivedInvocationsLock.withLock { subscribeToOwnProfileListenerUnderlyingReceivedInvocations.append(listener) }
+        if let subscribeToOwnProfileListenerClosure = subscribeToOwnProfileListenerClosure {
+            return try subscribeToOwnProfileListenerClosure(listener)
+        } else {
+            return subscribeToOwnProfileListenerReturnValue
         }
     }
 
@@ -4173,50 +4326,32 @@ open class ClientSDKMock: MatrixRustSDK.Client, @unchecked Sendable {
         }
     }
 
-    //MARK: - searchMessages
+    //MARK: - searchService
 
-    open var searchMessagesQueryFilterThrowableError: Error?
-    private let searchMessagesQueryFilterCallsCountLock = NSLock()
-    private var searchMessagesQueryFilterUnderlyingCallsCount = 0
-    open var searchMessagesQueryFilterCallsCount: Int {
-        get { searchMessagesQueryFilterCallsCountLock.withLock { searchMessagesQueryFilterUnderlyingCallsCount } }
-        set { searchMessagesQueryFilterCallsCountLock.withLock { searchMessagesQueryFilterUnderlyingCallsCount = newValue } }
+    private let searchServiceCallsCountLock = NSLock()
+    private var searchServiceUnderlyingCallsCount = 0
+    open var searchServiceCallsCount: Int {
+        get { searchServiceCallsCountLock.withLock { searchServiceUnderlyingCallsCount } }
+        set { searchServiceCallsCountLock.withLock { searchServiceUnderlyingCallsCount = newValue } }
     }
-    open var searchMessagesQueryFilterCalled: Bool {
-        return searchMessagesQueryFilterCallsCount > 0
-    }
-    private let searchMessagesQueryFilterReceivedArgumentsLock = NSLock()
-    private var searchMessagesQueryFilterUnderlyingReceivedArguments: (query: String, filter: SearchRoomFilter)?
-    open var searchMessagesQueryFilterReceivedArguments: (query: String, filter: SearchRoomFilter)? {
-        get { searchMessagesQueryFilterReceivedArgumentsLock.withLock { searchMessagesQueryFilterUnderlyingReceivedArguments } }
-        set { searchMessagesQueryFilterReceivedArgumentsLock.withLock { searchMessagesQueryFilterUnderlyingReceivedArguments = newValue } }
-    }
-    private let searchMessagesQueryFilterReceivedInvocationsLock = NSLock()
-    private var searchMessagesQueryFilterUnderlyingReceivedInvocations: [(query: String, filter: SearchRoomFilter)] = []
-    open var searchMessagesQueryFilterReceivedInvocations: [(query: String, filter: SearchRoomFilter)] {
-        get { searchMessagesQueryFilterReceivedInvocationsLock.withLock { searchMessagesQueryFilterUnderlyingReceivedInvocations } }
-        set { searchMessagesQueryFilterReceivedInvocationsLock.withLock { searchMessagesQueryFilterUnderlyingReceivedInvocations = newValue } }
+    open var searchServiceCalled: Bool {
+        return searchServiceCallsCount > 0
     }
 
-    private let searchMessagesQueryFilterReturnValueLock = NSLock()
-    open var searchMessagesQueryFilterUnderlyingReturnValue: GlobalSearchIterator!
-    open var searchMessagesQueryFilterReturnValue: GlobalSearchIterator! {
-        get { searchMessagesQueryFilterReturnValueLock.withLock { searchMessagesQueryFilterUnderlyingReturnValue } }
-        set { searchMessagesQueryFilterReturnValueLock.withLock { searchMessagesQueryFilterUnderlyingReturnValue = newValue } }
+    private let searchServiceReturnValueLock = NSLock()
+    open var searchServiceUnderlyingReturnValue: SearchService!
+    open var searchServiceReturnValue: SearchService! {
+        get { searchServiceReturnValueLock.withLock { searchServiceUnderlyingReturnValue } }
+        set { searchServiceReturnValueLock.withLock { searchServiceUnderlyingReturnValue = newValue } }
     }
-    open var searchMessagesQueryFilterClosure: ((String, SearchRoomFilter) async throws -> GlobalSearchIterator)?
+    open var searchServiceClosure: (() -> SearchService)?
 
-    open override func searchMessages(query: String, filter: SearchRoomFilter) async throws -> GlobalSearchIterator {
-        if let error = searchMessagesQueryFilterThrowableError {
-            throw error
-        }
-        searchMessagesQueryFilterCallsCountLock.withLock { searchMessagesQueryFilterUnderlyingCallsCount += 1 }
-        searchMessagesQueryFilterReceivedArguments = (query: query, filter: filter)
-        searchMessagesQueryFilterReceivedInvocationsLock.withLock { searchMessagesQueryFilterUnderlyingReceivedInvocations.append((query: query, filter: filter)) }
-        if let searchMessagesQueryFilterClosure = searchMessagesQueryFilterClosure {
-            return try await searchMessagesQueryFilterClosure(query, filter)
+    open override func searchService() -> SearchService {
+        searchServiceCallsCountLock.withLock { searchServiceUnderlyingCallsCount += 1 }
+        if let searchServiceClosure = searchServiceClosure {
+            return searchServiceClosure()
         } else {
-            return searchMessagesQueryFilterReturnValue
+            return searchServiceReturnValue
         }
     }
 }
@@ -5421,6 +5556,21 @@ open class ContentScannerSDKMock: MatrixRustSDK.ContentScanner, @unchecked Senda
         }
     }
 }
+open class CrossSigningSecretsSDKMock: MatrixRustSDK.CrossSigningSecrets, @unchecked Sendable {
+    public init() {
+        super.init(noHandle: .init())
+    }
+
+    public required init(unsafeFromHandle handle: UInt64) {
+        fatalError("init(unsafeFromHandle:) has not been implemented")
+    }
+
+    fileprivate var handle: UInt64 {
+        get { return underlyingHandle }
+        set(value) { underlyingHandle = value }
+    }
+    fileprivate var underlyingHandle: UInt64!
+}
 open class EncryptionSDKMock: MatrixRustSDK.Encryption, @unchecked Sendable {
     public init() {
         super.init(noHandle: .init())
@@ -6220,54 +6370,6 @@ open class EncryptionSDKMock: MatrixRustSDK.Encryption, @unchecked Sendable {
     open override func waitForE2eeInitializationTasks() async {
         waitForE2eeInitializationTasksCallsCountLock.withLock { waitForE2eeInitializationTasksUnderlyingCallsCount += 1 }
         await waitForE2eeInitializationTasksClosure?()
-    }
-}
-open class GlobalSearchIteratorSDKMock: MatrixRustSDK.GlobalSearchIterator, @unchecked Sendable {
-    public init() {
-        super.init(noHandle: .init())
-    }
-
-    public required init(unsafeFromHandle handle: UInt64) {
-        fatalError("init(unsafeFromHandle:) has not been implemented")
-    }
-
-    fileprivate var handle: UInt64 {
-        get { return underlyingHandle }
-        set(value) { underlyingHandle = value }
-    }
-    fileprivate var underlyingHandle: UInt64!
-
-    //MARK: - nextEvents
-
-    open var nextEventsThrowableError: Error?
-    private let nextEventsCallsCountLock = NSLock()
-    private var nextEventsUnderlyingCallsCount = 0
-    open var nextEventsCallsCount: Int {
-        get { nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount } }
-        set { nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount = newValue } }
-    }
-    open var nextEventsCalled: Bool {
-        return nextEventsCallsCount > 0
-    }
-
-    private let nextEventsReturnValueLock = NSLock()
-    open var nextEventsUnderlyingReturnValue: [GlobalSearchResult]?
-    open var nextEventsReturnValue: [GlobalSearchResult]? {
-        get { nextEventsReturnValueLock.withLock { nextEventsUnderlyingReturnValue } }
-        set { nextEventsReturnValueLock.withLock { nextEventsUnderlyingReturnValue = newValue } }
-    }
-    open var nextEventsClosure: (() async throws -> [GlobalSearchResult]?)?
-
-    open override func nextEvents() async throws -> [GlobalSearchResult]? {
-        if let error = nextEventsThrowableError {
-            throw error
-        }
-        nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount += 1 }
-        if let nextEventsClosure = nextEventsClosure {
-            return try await nextEventsClosure()
-        } else {
-            return nextEventsReturnValue
-        }
     }
 }
 open class GrantLoginWithQrCodeHandlerSDKMock: MatrixRustSDK.GrantLoginWithQrCodeHandler, @unchecked Sendable {
@@ -8689,6 +8791,111 @@ open class OAuthAuthorizationDataSDKMock: MatrixRustSDK.OAuthAuthorizationData, 
         }
     }
 }
+open class PasswordStrengthEstimatorSDKMock: MatrixRustSDK.PasswordStrengthEstimator, @unchecked Sendable {
+    public init() {
+        super.init(noHandle: .init())
+    }
+
+    public required init(unsafeFromHandle handle: UInt64) {
+        fatalError("init(unsafeFromHandle:) has not been implemented")
+    }
+
+    fileprivate var handle: UInt64 {
+        get { return underlyingHandle }
+        set(value) { underlyingHandle = value }
+    }
+    fileprivate var underlyingHandle: UInt64!
+    static func reset()
+    {
+    }
+
+    //MARK: - estimate
+
+    private let estimatePasswordUserInputsCallsCountLock = NSLock()
+    private var estimatePasswordUserInputsUnderlyingCallsCount = 0
+    open var estimatePasswordUserInputsCallsCount: Int {
+        get { estimatePasswordUserInputsCallsCountLock.withLock { estimatePasswordUserInputsUnderlyingCallsCount } }
+        set { estimatePasswordUserInputsCallsCountLock.withLock { estimatePasswordUserInputsUnderlyingCallsCount = newValue } }
+    }
+    open var estimatePasswordUserInputsCalled: Bool {
+        return estimatePasswordUserInputsCallsCount > 0
+    }
+    private let estimatePasswordUserInputsReceivedArgumentsLock = NSLock()
+    private var estimatePasswordUserInputsUnderlyingReceivedArguments: (password: String, userInputs: [String])?
+    open var estimatePasswordUserInputsReceivedArguments: (password: String, userInputs: [String])? {
+        get { estimatePasswordUserInputsReceivedArgumentsLock.withLock { estimatePasswordUserInputsUnderlyingReceivedArguments } }
+        set { estimatePasswordUserInputsReceivedArgumentsLock.withLock { estimatePasswordUserInputsUnderlyingReceivedArguments = newValue } }
+    }
+    private let estimatePasswordUserInputsReceivedInvocationsLock = NSLock()
+    private var estimatePasswordUserInputsUnderlyingReceivedInvocations: [(password: String, userInputs: [String])] = []
+    open var estimatePasswordUserInputsReceivedInvocations: [(password: String, userInputs: [String])] {
+        get { estimatePasswordUserInputsReceivedInvocationsLock.withLock { estimatePasswordUserInputsUnderlyingReceivedInvocations } }
+        set { estimatePasswordUserInputsReceivedInvocationsLock.withLock { estimatePasswordUserInputsUnderlyingReceivedInvocations = newValue } }
+    }
+
+    private let estimatePasswordUserInputsReturnValueLock = NSLock()
+    open var estimatePasswordUserInputsUnderlyingReturnValue: PasswordStrengthEstimate!
+    open var estimatePasswordUserInputsReturnValue: PasswordStrengthEstimate! {
+        get { estimatePasswordUserInputsReturnValueLock.withLock { estimatePasswordUserInputsUnderlyingReturnValue } }
+        set { estimatePasswordUserInputsReturnValueLock.withLock { estimatePasswordUserInputsUnderlyingReturnValue = newValue } }
+    }
+    open var estimatePasswordUserInputsClosure: ((String, [String]) -> PasswordStrengthEstimate)?
+
+    open override func estimate(password: String, userInputs: [String]) -> PasswordStrengthEstimate {
+        estimatePasswordUserInputsCallsCountLock.withLock { estimatePasswordUserInputsUnderlyingCallsCount += 1 }
+        estimatePasswordUserInputsReceivedArguments = (password: password, userInputs: userInputs)
+        estimatePasswordUserInputsReceivedInvocationsLock.withLock { estimatePasswordUserInputsUnderlyingReceivedInvocations.append((password: password, userInputs: userInputs)) }
+        if let estimatePasswordUserInputsClosure = estimatePasswordUserInputsClosure {
+            return estimatePasswordUserInputsClosure(password, userInputs)
+        } else {
+            return estimatePasswordUserInputsReturnValue
+        }
+    }
+
+    //MARK: - thresholds
+
+    private let thresholdsCallsCountLock = NSLock()
+    private var thresholdsUnderlyingCallsCount = 0
+    open var thresholdsCallsCount: Int {
+        get { thresholdsCallsCountLock.withLock { thresholdsUnderlyingCallsCount } }
+        set { thresholdsCallsCountLock.withLock { thresholdsUnderlyingCallsCount = newValue } }
+    }
+    open var thresholdsCalled: Bool {
+        return thresholdsCallsCount > 0
+    }
+
+    private let thresholdsReturnValueLock = NSLock()
+    open var thresholdsUnderlyingReturnValue: PasswordStrengthThresholds!
+    open var thresholdsReturnValue: PasswordStrengthThresholds! {
+        get { thresholdsReturnValueLock.withLock { thresholdsUnderlyingReturnValue } }
+        set { thresholdsReturnValueLock.withLock { thresholdsUnderlyingReturnValue = newValue } }
+    }
+    open var thresholdsClosure: (() -> PasswordStrengthThresholds)?
+
+    open override func thresholds() -> PasswordStrengthThresholds {
+        thresholdsCallsCountLock.withLock { thresholdsUnderlyingCallsCount += 1 }
+        if let thresholdsClosure = thresholdsClosure {
+            return thresholdsClosure()
+        } else {
+            return thresholdsReturnValue
+        }
+    }
+}
+open class PrivateStringSDKMock: MatrixRustSDK.PrivateString, @unchecked Sendable {
+    public init() {
+        super.init(noHandle: .init())
+    }
+
+    public required init(unsafeFromHandle handle: UInt64) {
+        fatalError("init(unsafeFromHandle:) has not been implemented")
+    }
+
+    fileprivate var handle: UInt64 {
+        get { return underlyingHandle }
+        set(value) { underlyingHandle = value }
+    }
+    fileprivate var underlyingHandle: UInt64!
+}
 open class QrCodeDataSDKMock: MatrixRustSDK.QrCodeData, @unchecked Sendable {
     public init() {
         super.init(noHandle: .init())
@@ -9479,12 +9686,12 @@ open class RoomSDKMock: MatrixRustSDK.Room, @unchecked Sendable {
         get { heroesReturnValueLock.withLock { heroesUnderlyingReturnValue } }
         set { heroesReturnValueLock.withLock { heroesUnderlyingReturnValue = newValue } }
     }
-    open var heroesClosure: (() -> [RoomHero])?
+    open var heroesClosure: (() async -> [RoomHero])?
 
-    open override func heroes() -> [RoomHero] {
+    open override func heroes() async -> [RoomHero] {
         heroesCallsCountLock.withLock { heroesUnderlyingCallsCount += 1 }
         if let heroesClosure = heroesClosure {
-            return heroesClosure()
+            return await heroesClosure()
         } else {
             return heroesReturnValue
         }
@@ -12307,49 +12514,6 @@ open class RoomSDKMock: MatrixRustSDK.Room, @unchecked Sendable {
         withdrawVerificationAndResendUserIdsSendHandleReceivedInvocationsLock.withLock { withdrawVerificationAndResendUserIdsSendHandleUnderlyingReceivedInvocations.append((userIds: userIds, sendHandle: sendHandle)) }
         try await withdrawVerificationAndResendUserIdsSendHandleClosure?(userIds, sendHandle)
     }
-
-    //MARK: - searchMessages
-
-    private let searchMessagesQueryCallsCountLock = NSLock()
-    private var searchMessagesQueryUnderlyingCallsCount = 0
-    open var searchMessagesQueryCallsCount: Int {
-        get { searchMessagesQueryCallsCountLock.withLock { searchMessagesQueryUnderlyingCallsCount } }
-        set { searchMessagesQueryCallsCountLock.withLock { searchMessagesQueryUnderlyingCallsCount = newValue } }
-    }
-    open var searchMessagesQueryCalled: Bool {
-        return searchMessagesQueryCallsCount > 0
-    }
-    private let searchMessagesQueryReceivedQueryLock = NSLock()
-    private var searchMessagesQueryUnderlyingReceivedQuery: String?
-    open var searchMessagesQueryReceivedQuery: String? {
-        get { searchMessagesQueryReceivedQueryLock.withLock { searchMessagesQueryUnderlyingReceivedQuery } }
-        set { searchMessagesQueryReceivedQueryLock.withLock { searchMessagesQueryUnderlyingReceivedQuery = newValue } }
-    }
-    private let searchMessagesQueryReceivedInvocationsLock = NSLock()
-    private var searchMessagesQueryUnderlyingReceivedInvocations: [String] = []
-    open var searchMessagesQueryReceivedInvocations: [String] {
-        get { searchMessagesQueryReceivedInvocationsLock.withLock { searchMessagesQueryUnderlyingReceivedInvocations } }
-        set { searchMessagesQueryReceivedInvocationsLock.withLock { searchMessagesQueryUnderlyingReceivedInvocations = newValue } }
-    }
-
-    private let searchMessagesQueryReturnValueLock = NSLock()
-    open var searchMessagesQueryUnderlyingReturnValue: RoomSearchIterator!
-    open var searchMessagesQueryReturnValue: RoomSearchIterator! {
-        get { searchMessagesQueryReturnValueLock.withLock { searchMessagesQueryUnderlyingReturnValue } }
-        set { searchMessagesQueryReturnValueLock.withLock { searchMessagesQueryUnderlyingReturnValue = newValue } }
-    }
-    open var searchMessagesQueryClosure: ((String) -> RoomSearchIterator)?
-
-    open override func searchMessages(query: String) -> RoomSearchIterator {
-        searchMessagesQueryCallsCountLock.withLock { searchMessagesQueryUnderlyingCallsCount += 1 }
-        searchMessagesQueryReceivedQuery = query
-        searchMessagesQueryReceivedInvocationsLock.withLock { searchMessagesQueryUnderlyingReceivedInvocations.append(query) }
-        if let searchMessagesQueryClosure = searchMessagesQueryClosure {
-            return searchMessagesQueryClosure(query)
-        } else {
-            return searchMessagesQueryReturnValue
-        }
-    }
 }
 open class RoomDirectorySearchSDKMock: MatrixRustSDK.RoomDirectorySearch, @unchecked Sendable {
     public init() {
@@ -14174,7 +14338,7 @@ open class RoomPreviewSDKMock: MatrixRustSDK.RoomPreview, @unchecked Sendable {
         }
     }
 }
-open class RoomSearchIteratorSDKMock: MatrixRustSDK.RoomSearchIterator, @unchecked Sendable {
+open class SearchServiceSDKMock: MatrixRustSDK.SearchService, @unchecked Sendable {
     public init() {
         super.init(noHandle: .init())
     }
@@ -14189,38 +14353,193 @@ open class RoomSearchIteratorSDKMock: MatrixRustSDK.RoomSearchIterator, @uncheck
     }
     fileprivate var underlyingHandle: UInt64!
 
-    //MARK: - nextEvents
+    //MARK: - paginate
 
-    open var nextEventsThrowableError: Error?
-    private let nextEventsCallsCountLock = NSLock()
-    private var nextEventsUnderlyingCallsCount = 0
-    open var nextEventsCallsCount: Int {
-        get { nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount } }
-        set { nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount = newValue } }
+    open var paginateThrowableError: Error?
+    private let paginateCallsCountLock = NSLock()
+    private var paginateUnderlyingCallsCount = 0
+    open var paginateCallsCount: Int {
+        get { paginateCallsCountLock.withLock { paginateUnderlyingCallsCount } }
+        set { paginateCallsCountLock.withLock { paginateUnderlyingCallsCount = newValue } }
     }
-    open var nextEventsCalled: Bool {
-        return nextEventsCallsCount > 0
+    open var paginateCalled: Bool {
+        return paginateCallsCount > 0
     }
+    open var paginateClosure: (() async throws -> Void)?
 
-    private let nextEventsReturnValueLock = NSLock()
-    open var nextEventsUnderlyingReturnValue: [RoomSearchResult]?
-    open var nextEventsReturnValue: [RoomSearchResult]? {
-        get { nextEventsReturnValueLock.withLock { nextEventsUnderlyingReturnValue } }
-        set { nextEventsReturnValueLock.withLock { nextEventsUnderlyingReturnValue = newValue } }
-    }
-    open var nextEventsClosure: (() async throws -> [RoomSearchResult]?)?
-
-    open override func nextEvents() async throws -> [RoomSearchResult]? {
-        if let error = nextEventsThrowableError {
+    open override func paginate() async throws {
+        if let error = paginateThrowableError {
             throw error
         }
-        nextEventsCallsCountLock.withLock { nextEventsUnderlyingCallsCount += 1 }
-        if let nextEventsClosure = nextEventsClosure {
-            return try await nextEventsClosure()
+        paginateCallsCountLock.withLock { paginateUnderlyingCallsCount += 1 }
+        try await paginateClosure?()
+    }
+
+    //MARK: - paginationState
+
+    private let paginationStateCallsCountLock = NSLock()
+    private var paginationStateUnderlyingCallsCount = 0
+    open var paginationStateCallsCount: Int {
+        get { paginationStateCallsCountLock.withLock { paginationStateUnderlyingCallsCount } }
+        set { paginationStateCallsCountLock.withLock { paginationStateUnderlyingCallsCount = newValue } }
+    }
+    open var paginationStateCalled: Bool {
+        return paginationStateCallsCount > 0
+    }
+
+    private let paginationStateReturnValueLock = NSLock()
+    open var paginationStateUnderlyingReturnValue: SearchServicePaginationState!
+    open var paginationStateReturnValue: SearchServicePaginationState! {
+        get { paginationStateReturnValueLock.withLock { paginationStateUnderlyingReturnValue } }
+        set { paginationStateReturnValueLock.withLock { paginationStateUnderlyingReturnValue = newValue } }
+    }
+    open var paginationStateClosure: (() -> SearchServicePaginationState)?
+
+    open override func paginationState() -> SearchServicePaginationState {
+        paginationStateCallsCountLock.withLock { paginationStateUnderlyingCallsCount += 1 }
+        if let paginationStateClosure = paginationStateClosure {
+            return paginationStateClosure()
         } else {
-            return nextEventsReturnValue
+            return paginationStateReturnValue
         }
     }
+
+    //MARK: - setQuery
+
+    open var setQueryQueryThrowableError: Error?
+    private let setQueryQueryCallsCountLock = NSLock()
+    private var setQueryQueryUnderlyingCallsCount = 0
+    open var setQueryQueryCallsCount: Int {
+        get { setQueryQueryCallsCountLock.withLock { setQueryQueryUnderlyingCallsCount } }
+        set { setQueryQueryCallsCountLock.withLock { setQueryQueryUnderlyingCallsCount = newValue } }
+    }
+    open var setQueryQueryCalled: Bool {
+        return setQueryQueryCallsCount > 0
+    }
+    private let setQueryQueryReceivedQueryLock = NSLock()
+    private var setQueryQueryUnderlyingReceivedQuery: String?
+    open var setQueryQueryReceivedQuery: String? {
+        get { setQueryQueryReceivedQueryLock.withLock { setQueryQueryUnderlyingReceivedQuery } }
+        set { setQueryQueryReceivedQueryLock.withLock { setQueryQueryUnderlyingReceivedQuery = newValue } }
+    }
+    private let setQueryQueryReceivedInvocationsLock = NSLock()
+    private var setQueryQueryUnderlyingReceivedInvocations: [String] = []
+    open var setQueryQueryReceivedInvocations: [String] {
+        get { setQueryQueryReceivedInvocationsLock.withLock { setQueryQueryUnderlyingReceivedInvocations } }
+        set { setQueryQueryReceivedInvocationsLock.withLock { setQueryQueryUnderlyingReceivedInvocations = newValue } }
+    }
+    open var setQueryQueryClosure: ((String) async throws -> Void)?
+
+    open override func setQuery(query: String) async throws {
+        if let error = setQueryQueryThrowableError {
+            throw error
+        }
+        setQueryQueryCallsCountLock.withLock { setQueryQueryUnderlyingCallsCount += 1 }
+        setQueryQueryReceivedQuery = query
+        setQueryQueryReceivedInvocationsLock.withLock { setQueryQueryUnderlyingReceivedInvocations.append(query) }
+        try await setQueryQueryClosure?(query)
+    }
+
+    //MARK: - subscribeToPaginationStateUpdates
+
+    private let subscribeToPaginationStateUpdatesListenerCallsCountLock = NSLock()
+    private var subscribeToPaginationStateUpdatesListenerUnderlyingCallsCount = 0
+    open var subscribeToPaginationStateUpdatesListenerCallsCount: Int {
+        get { subscribeToPaginationStateUpdatesListenerCallsCountLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingCallsCount } }
+        set { subscribeToPaginationStateUpdatesListenerCallsCountLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingCallsCount = newValue } }
+    }
+    open var subscribeToPaginationStateUpdatesListenerCalled: Bool {
+        return subscribeToPaginationStateUpdatesListenerCallsCount > 0
+    }
+    private let subscribeToPaginationStateUpdatesListenerReceivedListenerLock = NSLock()
+    private var subscribeToPaginationStateUpdatesListenerUnderlyingReceivedListener: SearchServicePaginationStateListener?
+    open var subscribeToPaginationStateUpdatesListenerReceivedListener: SearchServicePaginationStateListener? {
+        get { subscribeToPaginationStateUpdatesListenerReceivedListenerLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReceivedListener } }
+        set { subscribeToPaginationStateUpdatesListenerReceivedListenerLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReceivedListener = newValue } }
+    }
+    private let subscribeToPaginationStateUpdatesListenerReceivedInvocationsLock = NSLock()
+    private var subscribeToPaginationStateUpdatesListenerUnderlyingReceivedInvocations: [SearchServicePaginationStateListener] = []
+    open var subscribeToPaginationStateUpdatesListenerReceivedInvocations: [SearchServicePaginationStateListener] {
+        get { subscribeToPaginationStateUpdatesListenerReceivedInvocationsLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReceivedInvocations } }
+        set { subscribeToPaginationStateUpdatesListenerReceivedInvocationsLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReceivedInvocations = newValue } }
+    }
+
+    private let subscribeToPaginationStateUpdatesListenerReturnValueLock = NSLock()
+    open var subscribeToPaginationStateUpdatesListenerUnderlyingReturnValue: TaskHandle!
+    open var subscribeToPaginationStateUpdatesListenerReturnValue: TaskHandle! {
+        get { subscribeToPaginationStateUpdatesListenerReturnValueLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReturnValue } }
+        set { subscribeToPaginationStateUpdatesListenerReturnValueLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReturnValue = newValue } }
+    }
+    open var subscribeToPaginationStateUpdatesListenerClosure: ((SearchServicePaginationStateListener) -> TaskHandle)?
+
+    open override func subscribeToPaginationStateUpdates(listener: SearchServicePaginationStateListener) -> TaskHandle {
+        subscribeToPaginationStateUpdatesListenerCallsCountLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingCallsCount += 1 }
+        subscribeToPaginationStateUpdatesListenerReceivedListener = listener
+        subscribeToPaginationStateUpdatesListenerReceivedInvocationsLock.withLock { subscribeToPaginationStateUpdatesListenerUnderlyingReceivedInvocations.append(listener) }
+        if let subscribeToPaginationStateUpdatesListenerClosure = subscribeToPaginationStateUpdatesListenerClosure {
+            return subscribeToPaginationStateUpdatesListenerClosure(listener)
+        } else {
+            return subscribeToPaginationStateUpdatesListenerReturnValue
+        }
+    }
+
+    //MARK: - subscribeToResults
+
+    private let subscribeToResultsListenerCallsCountLock = NSLock()
+    private var subscribeToResultsListenerUnderlyingCallsCount = 0
+    open var subscribeToResultsListenerCallsCount: Int {
+        get { subscribeToResultsListenerCallsCountLock.withLock { subscribeToResultsListenerUnderlyingCallsCount } }
+        set { subscribeToResultsListenerCallsCountLock.withLock { subscribeToResultsListenerUnderlyingCallsCount = newValue } }
+    }
+    open var subscribeToResultsListenerCalled: Bool {
+        return subscribeToResultsListenerCallsCount > 0
+    }
+    private let subscribeToResultsListenerReceivedListenerLock = NSLock()
+    private var subscribeToResultsListenerUnderlyingReceivedListener: SearchServiceResultsListener?
+    open var subscribeToResultsListenerReceivedListener: SearchServiceResultsListener? {
+        get { subscribeToResultsListenerReceivedListenerLock.withLock { subscribeToResultsListenerUnderlyingReceivedListener } }
+        set { subscribeToResultsListenerReceivedListenerLock.withLock { subscribeToResultsListenerUnderlyingReceivedListener = newValue } }
+    }
+    private let subscribeToResultsListenerReceivedInvocationsLock = NSLock()
+    private var subscribeToResultsListenerUnderlyingReceivedInvocations: [SearchServiceResultsListener] = []
+    open var subscribeToResultsListenerReceivedInvocations: [SearchServiceResultsListener] {
+        get { subscribeToResultsListenerReceivedInvocationsLock.withLock { subscribeToResultsListenerUnderlyingReceivedInvocations } }
+        set { subscribeToResultsListenerReceivedInvocationsLock.withLock { subscribeToResultsListenerUnderlyingReceivedInvocations = newValue } }
+    }
+
+    private let subscribeToResultsListenerReturnValueLock = NSLock()
+    open var subscribeToResultsListenerUnderlyingReturnValue: TaskHandle!
+    open var subscribeToResultsListenerReturnValue: TaskHandle! {
+        get { subscribeToResultsListenerReturnValueLock.withLock { subscribeToResultsListenerUnderlyingReturnValue } }
+        set { subscribeToResultsListenerReturnValueLock.withLock { subscribeToResultsListenerUnderlyingReturnValue = newValue } }
+    }
+    open var subscribeToResultsListenerClosure: ((SearchServiceResultsListener) async -> TaskHandle)?
+
+    open override func subscribeToResults(listener: SearchServiceResultsListener) async -> TaskHandle {
+        subscribeToResultsListenerCallsCountLock.withLock { subscribeToResultsListenerUnderlyingCallsCount += 1 }
+        subscribeToResultsListenerReceivedListener = listener
+        subscribeToResultsListenerReceivedInvocationsLock.withLock { subscribeToResultsListenerUnderlyingReceivedInvocations.append(listener) }
+        if let subscribeToResultsListenerClosure = subscribeToResultsListenerClosure {
+            return await subscribeToResultsListenerClosure(listener)
+        } else {
+            return subscribeToResultsListenerReturnValue
+        }
+    }
+}
+open class SecretsBundleSDKMock: MatrixRustSDK.SecretsBundle, @unchecked Sendable {
+    public init() {
+        super.init(noHandle: .init())
+    }
+
+    public required init(unsafeFromHandle handle: UInt64) {
+        fatalError("init(unsafeFromHandle:) has not been implemented")
+    }
+
+    fileprivate var handle: UInt64 {
+        get { return underlyingHandle }
+        set(value) { underlyingHandle = value }
+    }
+    fileprivate var underlyingHandle: UInt64!
 }
 open class SecretsBundleWithUserIdSDKMock: MatrixRustSDK.SecretsBundleWithUserId, @unchecked Sendable {
     public init() {
@@ -16132,6 +16451,35 @@ open class SyncServiceBuilderSDKMock: MatrixRustSDK.SyncServiceBuilder, @uncheck
         }
     }
 
+    //MARK: - withProfilesExtension
+
+    private let withProfilesExtensionCallsCountLock = NSLock()
+    private var withProfilesExtensionUnderlyingCallsCount = 0
+    open var withProfilesExtensionCallsCount: Int {
+        get { withProfilesExtensionCallsCountLock.withLock { withProfilesExtensionUnderlyingCallsCount } }
+        set { withProfilesExtensionCallsCountLock.withLock { withProfilesExtensionUnderlyingCallsCount = newValue } }
+    }
+    open var withProfilesExtensionCalled: Bool {
+        return withProfilesExtensionCallsCount > 0
+    }
+
+    private let withProfilesExtensionReturnValueLock = NSLock()
+    open var withProfilesExtensionUnderlyingReturnValue: SyncServiceBuilder!
+    open var withProfilesExtensionReturnValue: SyncServiceBuilder! {
+        get { withProfilesExtensionReturnValueLock.withLock { withProfilesExtensionUnderlyingReturnValue } }
+        set { withProfilesExtensionReturnValueLock.withLock { withProfilesExtensionUnderlyingReturnValue = newValue } }
+    }
+    open var withProfilesExtensionClosure: (() -> SyncServiceBuilder)?
+
+    open override func withProfilesExtension() -> SyncServiceBuilder {
+        withProfilesExtensionCallsCountLock.withLock { withProfilesExtensionUnderlyingCallsCount += 1 }
+        if let withProfilesExtensionClosure = withProfilesExtensionClosure {
+            return withProfilesExtensionClosure()
+        } else {
+            return withProfilesExtensionReturnValue
+        }
+    }
+
     //MARK: - withRoomListConnectionId
 
     private let withRoomListConnectionIdConnectionIdCallsCountLock = NSLock()
@@ -17369,48 +17717,48 @@ open class TimelineSDKMock: MatrixRustSDK.Timeline, @unchecked Sendable {
 
     //MARK: - sendImage
 
-    open var sendImageParamsThumbnailSourceImageInfoThrowableError: Error?
-    private let sendImageParamsThumbnailSourceImageInfoCallsCountLock = NSLock()
-    private var sendImageParamsThumbnailSourceImageInfoUnderlyingCallsCount = 0
-    open var sendImageParamsThumbnailSourceImageInfoCallsCount: Int {
-        get { sendImageParamsThumbnailSourceImageInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingCallsCount } }
-        set { sendImageParamsThumbnailSourceImageInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingCallsCount = newValue } }
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoThrowableError: Error?
+    private let sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCountLock = NSLock()
+    private var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingCallsCount = 0
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCount: Int {
+        get { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingCallsCount } }
+        set { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingCallsCount = newValue } }
     }
-    open var sendImageParamsThumbnailSourceImageInfoCalled: Bool {
-        return sendImageParamsThumbnailSourceImageInfoCallsCount > 0
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCalled: Bool {
+        return sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCount > 0
     }
-    private let sendImageParamsThumbnailSourceImageInfoReceivedArgumentsLock = NSLock()
-    private var sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedArguments: (params: UploadParameters, thumbnailSource: UploadSource?, imageInfo: ImageInfo)?
-    open var sendImageParamsThumbnailSourceImageInfoReceivedArguments: (params: UploadParameters, thumbnailSource: UploadSource?, imageInfo: ImageInfo)? {
-        get { sendImageParamsThumbnailSourceImageInfoReceivedArgumentsLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedArguments } }
-        set { sendImageParamsThumbnailSourceImageInfoReceivedArgumentsLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedArguments = newValue } }
+    private let sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedArgumentsLock = NSLock()
+    private var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedArguments: (params: UploadParameters, thumbnailSource: UploadSource?, mediumPreviewSource: UploadSource?, imageInfo: ImageInfo, mediumPreviewInfo: ThumbnailInfo?)?
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedArguments: (params: UploadParameters, thumbnailSource: UploadSource?, mediumPreviewSource: UploadSource?, imageInfo: ImageInfo, mediumPreviewInfo: ThumbnailInfo?)? {
+        get { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedArgumentsLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedArguments } }
+        set { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedArgumentsLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedArguments = newValue } }
     }
-    private let sendImageParamsThumbnailSourceImageInfoReceivedInvocationsLock = NSLock()
-    private var sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedInvocations: [(params: UploadParameters, thumbnailSource: UploadSource?, imageInfo: ImageInfo)] = []
-    open var sendImageParamsThumbnailSourceImageInfoReceivedInvocations: [(params: UploadParameters, thumbnailSource: UploadSource?, imageInfo: ImageInfo)] {
-        get { sendImageParamsThumbnailSourceImageInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedInvocations } }
-        set { sendImageParamsThumbnailSourceImageInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedInvocations = newValue } }
+    private let sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedInvocationsLock = NSLock()
+    private var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedInvocations: [(params: UploadParameters, thumbnailSource: UploadSource?, mediumPreviewSource: UploadSource?, imageInfo: ImageInfo, mediumPreviewInfo: ThumbnailInfo?)] = []
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedInvocations: [(params: UploadParameters, thumbnailSource: UploadSource?, mediumPreviewSource: UploadSource?, imageInfo: ImageInfo, mediumPreviewInfo: ThumbnailInfo?)] {
+        get { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedInvocations } }
+        set { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedInvocations = newValue } }
     }
 
-    private let sendImageParamsThumbnailSourceImageInfoReturnValueLock = NSLock()
-    open var sendImageParamsThumbnailSourceImageInfoUnderlyingReturnValue: SendAttachmentJoinHandle!
-    open var sendImageParamsThumbnailSourceImageInfoReturnValue: SendAttachmentJoinHandle! {
-        get { sendImageParamsThumbnailSourceImageInfoReturnValueLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReturnValue } }
-        set { sendImageParamsThumbnailSourceImageInfoReturnValueLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReturnValue = newValue } }
+    private let sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReturnValueLock = NSLock()
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReturnValue: SendAttachmentJoinHandle!
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReturnValue: SendAttachmentJoinHandle! {
+        get { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReturnValueLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReturnValue } }
+        set { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReturnValueLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReturnValue = newValue } }
     }
-    open var sendImageParamsThumbnailSourceImageInfoClosure: ((UploadParameters, UploadSource?, ImageInfo) throws -> SendAttachmentJoinHandle)?
+    open var sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoClosure: ((UploadParameters, UploadSource?, UploadSource?, ImageInfo, ThumbnailInfo?) throws -> SendAttachmentJoinHandle)?
 
-    open override func sendImage(params: UploadParameters, thumbnailSource: UploadSource?, imageInfo: ImageInfo) throws -> SendAttachmentJoinHandle {
-        if let error = sendImageParamsThumbnailSourceImageInfoThrowableError {
+    open override func sendImage(params: UploadParameters, thumbnailSource: UploadSource?, mediumPreviewSource: UploadSource?, imageInfo: ImageInfo, mediumPreviewInfo: ThumbnailInfo?) throws -> SendAttachmentJoinHandle {
+        if let error = sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoThrowableError {
             throw error
         }
-        sendImageParamsThumbnailSourceImageInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingCallsCount += 1 }
-        sendImageParamsThumbnailSourceImageInfoReceivedArguments = (params: params, thumbnailSource: thumbnailSource, imageInfo: imageInfo)
-        sendImageParamsThumbnailSourceImageInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceImageInfoUnderlyingReceivedInvocations.append((params: params, thumbnailSource: thumbnailSource, imageInfo: imageInfo)) }
-        if let sendImageParamsThumbnailSourceImageInfoClosure = sendImageParamsThumbnailSourceImageInfoClosure {
-            return try sendImageParamsThumbnailSourceImageInfoClosure(params, thumbnailSource, imageInfo)
+        sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoCallsCountLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingCallsCount += 1 }
+        sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedArguments = (params: params, thumbnailSource: thumbnailSource, mediumPreviewSource: mediumPreviewSource, imageInfo: imageInfo, mediumPreviewInfo: mediumPreviewInfo)
+        sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReceivedInvocationsLock.withLock { sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoUnderlyingReceivedInvocations.append((params: params, thumbnailSource: thumbnailSource, mediumPreviewSource: mediumPreviewSource, imageInfo: imageInfo, mediumPreviewInfo: mediumPreviewInfo)) }
+        if let sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoClosure = sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoClosure {
+            return try sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoClosure(params, thumbnailSource, mediumPreviewSource, imageInfo, mediumPreviewInfo)
         } else {
-            return sendImageParamsThumbnailSourceImageInfoReturnValue
+            return sendImageParamsThumbnailSourceMediumPreviewSourceImageInfoMediumPreviewInfoReturnValue
         }
     }
 

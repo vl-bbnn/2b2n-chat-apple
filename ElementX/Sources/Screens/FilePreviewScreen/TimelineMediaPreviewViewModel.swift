@@ -115,19 +115,48 @@ class TimelineMediaPreviewViewModel: TimelineMediaPreviewViewModelType {
         rebuildCurrentItemActions()
         
         if case let .media(mediaItem) = previewItem {
-            if mediaItem.fileHandle == nil, let source = mediaItem.mediaSource {
+            if mediaItem.fileHandle == nil, let source = mediaItem.mediumPreviewMediaSource ?? mediaItem.mediaSource {
                 switch await mediaProvider.loadFileFromSource(source, filename: mediaItem.filename) {
                 case .success(let handle):
                     mediaItem.fileHandle = handle
+                    if mediaItem.mediumPreviewMediaSource == nil {
+                        mediaItem.originalFileHandle = handle
+                    }
                     state.previewControllerDriver.send(.itemLoaded(mediaItem.id))
                 case .failure(let error):
-                    MXLog.error("Failed loading media: \(error)")
-                    context.objectWillChange.send() // Manually trigger the SwiftUI view update.
-                    mediaItem.downloadError = error
+                    var recoveredWithOriginal = false
+                    if mediaItem.mediumPreviewMediaSource != nil {
+                        recoveredWithOriginal = await loadOriginalFile(for: mediaItem)
+                    }
+                    if !recoveredWithOriginal {
+                        MXLog.error("Failed loading media: \(error)")
+                        context.objectWillChange.send() // Manually trigger the SwiftUI view update.
+                        mediaItem.downloadError = error
+                    }
                 }
+            }
+
+            if mediaItem.mediumPreviewMediaSource != nil {
+                _ = await loadOriginalFile(for: mediaItem)
             }
         } else {
             paginateIfNeeded()
+        }
+    }
+
+    private func loadOriginalFile(for mediaItem: TimelineMediaPreviewItem.Media) async -> Bool {
+        if mediaItem.originalFileHandle != nil { return true }
+        guard let source = mediaItem.mediaSource else { return false }
+
+        switch await mediaProvider.loadFileFromSource(source, filename: mediaItem.filename) {
+        case .success(let handle):
+            mediaItem.originalFileHandle = handle
+            mediaItem.fileHandle = handle
+            state.previewControllerDriver.send(.itemLoaded(mediaItem.id))
+            return true
+        case .failure(let error):
+            MXLog.error("Failed loading original media: \(error)")
+            return false
         }
     }
     
@@ -168,7 +197,17 @@ class TimelineMediaPreviewViewModel: TimelineMediaPreviewViewModelType {
     }
     
     private func saveCurrentItem() async {
-        guard case let .media(mediaItem) = state.currentItem, let fileURL = mediaItem.fileHandle?.url else {
+        guard case let .media(mediaItem) = state.currentItem else {
+            MXLog.error("Unable to save an item without a URL, the button shouldn't be visible.")
+            return
+        }
+
+        if mediaItem.mediumPreviewMediaSource != nil,
+           await !loadOriginalFile(for: mediaItem) {
+            showErrorIndicator()
+            return
+        }
+        guard let fileURL = mediaItem.originalFileHandle?.url ?? mediaItem.fileHandle?.url else {
             MXLog.error("Unable to save an item without a URL, the button shouldn't be visible.")
             return
         }

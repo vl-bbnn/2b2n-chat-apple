@@ -38,7 +38,7 @@ struct CreateRoomScreenViewState: BindableState {
     var avatarMediaInfo: MediaInfo? {
         didSet {
             switch avatarMediaInfo {
-            case .image(let imageURL, let thumbnailURL, _):
+            case .image(let imageURL, let thumbnailURL, _, _):
                 avatarImage = UIImage(contentsOfFile: (thumbnailURL ?? imageURL).path(percentEncoded: false))
             default:
                 avatarImage = nil

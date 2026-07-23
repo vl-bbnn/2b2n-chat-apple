@@ -416,7 +416,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     }
     
     func uploadAvatar(media: MediaInfo) async -> Result<Void, RoomProxyError> {
-        guard case let .image(imageURL, _, _) = media, let mimeType = media.mimeType else {
+        guard case let .image(imageURL, _, _, _) = media, let mimeType = media.mimeType else {
             MXLog.error("Failed uploading avatar, invalid media: \(media)")
             return .failure(.invalidMedia)
         }

@@ -33,14 +33,14 @@ indirect enum MediaUploadingPreprocessorError: Error {
 }
 
 enum MediaInfo {
-    case image(imageURL: URL, thumbnailURL: URL?, imageInfo: ImageInfo)
+    case image(imageURL: URL, thumbnailURL: URL?, mediumPreview: ImagePreviewInfo?, imageInfo: ImageInfo)
     case video(videoURL: URL, thumbnailURL: URL, videoInfo: VideoInfo)
     case audio(audioURL: URL, audioInfo: AudioInfo)
     case file(fileURL: URL, fileInfo: FileInfo)
     
     var mimeType: String? {
         switch self {
-        case .image(_, _, let imageInfo):
+        case .image(_, _, _, let imageInfo):
             return imageInfo.mimetype
         case .video(_, _, let videoInfo):
             return videoInfo.mimetype
@@ -53,7 +53,7 @@ enum MediaInfo {
     
     var url: URL {
         switch self {
-        case .image(let url, _, _),
+        case .image(let url, _, _, _),
              .video(let url, _, _),
              .audio(let url, _),
              .file(let url, _):
@@ -63,7 +63,7 @@ enum MediaInfo {
     
     var thumbnailURL: URL? {
         switch self {
-        case .image(_, let url, _):
+        case .image(_, let url, _, _):
             return url
         case .video(_, let url, _):
             return url
@@ -71,6 +71,11 @@ enum MediaInfo {
             return nil
         }
     }
+}
+
+struct ImagePreviewInfo {
+    let url: URL
+    let info: ThumbnailInfo
 }
 
 private struct ImageProcessingInfo {
@@ -201,7 +206,13 @@ struct MediaUploadingPreprocessor {
                 }
             }
             
-            let thumbnailResult = try generateThumbnailForImage(at: url)
+            let thumbnailResult = try generateThumbnailForImage(at: url,
+                                                                maxPixelSize: max(Constants.maximumThumbnailSize.height,
+                                                                                  Constants.maximumThumbnailSize.width),
+                                                                filenamePrefix: "thumbnail")
+            let mediumPreviewResult = try generateThumbnailForImage(at: url,
+                                                                    maxPixelSize: Constants.highDynamicRangeThumbnailMaxPixelSize,
+                                                                    filenamePrefix: "medium-preview")
             
             guard let imageSource = CGImageSourceCreateWithURL(url as NSURL, nil),
                   let imageSize = imageSource.size else {
@@ -210,13 +221,20 @@ struct MediaUploadingPreprocessor {
             
             let fileSize = (try? FileManager.default.sizeForItem(at: url)) ?? 0
             let thumbnailFileSize = (try? FileManager.default.sizeForItem(at: thumbnailResult.url)) ?? 0
+            let mediumPreviewFileSize = (try? FileManager.default.sizeForItem(at: mediumPreviewResult.url)) ?? 0
             
-            guard fileSize < maxUploadSize, thumbnailFileSize < maxUploadSize else { return .failure(.maxUploadSizeExceeded(limit: maxUploadSize)) }
+            guard fileSize < maxUploadSize,
+                  thumbnailFileSize < maxUploadSize,
+                  mediumPreviewFileSize < maxUploadSize else { return .failure(.maxUploadSizeExceeded(limit: maxUploadSize)) }
             
             let thumbnailInfo = ThumbnailInfo(height: UInt64(thumbnailResult.height),
                                               width: UInt64(thumbnailResult.width),
                                               mimetype: thumbnailResult.mimeType,
                                               size: UInt64(thumbnailFileSize))
+            let mediumPreviewInfo = ThumbnailInfo(height: UInt64(mediumPreviewResult.height),
+                                                  width: UInt64(mediumPreviewResult.width),
+                                                  mimetype: mediumPreviewResult.mimeType,
+                                                  size: UInt64(mediumPreviewFileSize))
             
             let imageInfo = ImageInfo(height: UInt64(imageSize.height),
                                       width: UInt64(imageSize.width),
@@ -227,7 +245,10 @@ struct MediaUploadingPreprocessor {
                                       blurhash: thumbnailResult.blurhash,
                                       isAnimated: nil)
             
-            let mediaInfo = MediaInfo.image(imageURL: url, thumbnailURL: thumbnailResult.url, imageInfo: imageInfo)
+            let mediaInfo = MediaInfo.image(imageURL: url,
+                                            thumbnailURL: thumbnailResult.url,
+                                            mediumPreview: .init(url: mediumPreviewResult.url, info: mediumPreviewInfo),
+                                            imageInfo: imageInfo)
             
             return .success(mediaInfo)
         } catch {
@@ -352,17 +373,18 @@ struct MediaUploadingPreprocessor {
     /// Generates a thumbnail for an image
     /// - Parameter url: the original image URL
     /// - Returns: the URL for the resulting thumbnail and its sizing info as an `ImageProcessingResult`
-    private func generateThumbnailForImage(at url: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
-        let thumbnailFileName = "thumbnail-\((url.lastPathComponent as NSString).deletingPathExtension).jpeg"
+    private func generateThumbnailForImage(at url: URL,
+                                           maxPixelSize: CGFloat,
+                                           filenamePrefix: String) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+        let thumbnailFileName = "\(filenamePrefix)-\((url.lastPathComponent as NSString).deletingPathExtension).jpeg"
         let thumbnailURL = url.deletingLastPathComponent().appendingPathComponent(thumbnailFileName)
-        let thumbnailMaxPixelSize = max(Constants.maximumThumbnailSize.height, Constants.maximumThumbnailSize.width)
 
         if isHighDynamicRangeImage(at: url) {
-            return try generateHighDynamicRangeThumbnail(at: url, destination: thumbnailURL)
+            return try generateHighDynamicRangeThumbnail(at: url, destination: thumbnailURL, maxPixelSize: maxPixelSize)
         }
         
         do {
-            try resizeImage(at: url, maxPixelSize: thumbnailMaxPixelSize, destination: thumbnailURL, type: .jpeg)
+            try resizeImage(at: url, maxPixelSize: maxPixelSize, destination: thumbnailURL, type: .jpeg)
         } catch {
             throw .failedGeneratingImageThumbnail(error)
         }
@@ -376,18 +398,55 @@ struct MediaUploadingPreprocessor {
         return .init(url: thumbnailURL, height: thumbnail.size.height, width: thumbnail.size.width, mimeType: "image/jpeg", blurhash: blurhash)
     }
 
-    /// Creates a JPEG with a gain map. When the source already contains a gain map (notably HEIC),
-    /// its SDR base, gain map and gain-map properties are scaled together without re-deriving HDR.
-    private func generateHighDynamicRangeThumbnail(at url: URL, destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+    /// Creates an ISO gain-map JPEG. Existing gain maps are scaled without decoding the complete
+    /// HDR rendition, which is both cheaper and supported by the iOS Simulator.
+    private func generateHighDynamicRangeThumbnail(at url: URL,
+                                                   destination: URL,
+                                                   maxPixelSize: CGFloat) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
         if hasAuxiliaryGainMap(at: url) {
-            return try generateHighDynamicRangeThumbnailPreservingGainMap(at: url, destination: destination)
+            return try generateHighDynamicRangeThumbnailPreservingGainMap(at: url,
+                                                                          destination: destination,
+                                                                          maxPixelSize: maxPixelSize)
         }
 
-        return try generateHighDynamicRangeThumbnailDerivingGainMap(at: url, destination: destination)
+        // ImageIO on the simulator (and on some older OS versions) does not expose the
+        // gain map embedded in Google's JPEG/R container as auxiliary image data. Keep a
+        // byte-for-byte copy as the thumbnail in that case: resizing only the primary JPEG
+        // would silently turn an Ultra HDR message into SDR for other clients.
+        if hasEmbeddedUltraHDRGainMap(at: url) {
+            return try copyEmbeddedUltraHDRThumbnail(at: url, destination: destination)
+        }
+
+        return try generateHighDynamicRangeThumbnailDerivingGainMap(at: url,
+                                                                    destination: destination,
+                                                                    maxPixelSize: maxPixelSize)
+    }
+
+    private func copyEmbeddedUltraHDRThumbnail(at url: URL,
+                                               destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let imageSize = imageSource.size else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        do {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: url, to: destination)
+        } catch {
+            throw .failedGeneratingImageThumbnail(error)
+        }
+
+        let blurhash = standardDynamicRangeImage(at: destination)?.blurHash(numberOfComponents: (3, 3))
+        return .init(url: destination,
+                     height: imageSize.height,
+                     width: imageSize.width,
+                     mimeType: "image/jpeg",
+                     blurhash: blurhash)
     }
 
     private func generateHighDynamicRangeThumbnailPreservingGainMap(at url: URL,
-                                                                    destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+                                                                    destination: URL,
+                                                                    maxPixelSize: CGFloat) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
         let imageOptions: [CIImageOption: Any] = [.applyOrientationProperty: true]
         let gainMapOptions: [CIImageOption: Any] = [
             .applyOrientationProperty: true,
@@ -401,7 +460,7 @@ struct MediaUploadingPreprocessor {
             throw .failedGeneratingImageThumbnail(nil)
         }
 
-        let scale = min(1, Constants.highDynamicRangeThumbnailMaxPixelSize / max(baseImage.extent.width, baseImage.extent.height))
+        let scale = min(1, maxPixelSize / max(baseImage.extent.width, baseImage.extent.height))
         let targetSize = CGSize(width: max(1, floor(baseImage.extent.width * scale)),
                                 height: max(1, floor(baseImage.extent.height * scale)))
         let targetExtent = CGRect(origin: .zero, size: targetSize)
@@ -435,6 +494,7 @@ struct MediaUploadingPreprocessor {
                                                 to: destination,
                                                 colorSpace: colorSpace,
                                                 options: representationOptions)
+            try addUltraHDRCompatibilityMetadata(sourceURL: url, thumbnailURL: destination)
         } catch {
             try? FileManager.default.removeItem(at: destination)
             throw .failedGeneratingImageThumbnail(error)
@@ -453,15 +513,15 @@ struct MediaUploadingPreprocessor {
                      blurhash: blurhash)
     }
 
-    /// Fallback only for HDR formats that don't expose an existing auxiliary gain map.
     private func generateHighDynamicRangeThumbnailDerivingGainMap(at url: URL,
-                                                                  destination: URL) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
+                                                                  destination: URL,
+                                                                  maxPixelSize: CGFloat) throws(MediaUploadingPreprocessorError) -> ImageProcessingInfo {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
               let sourceSize = imageSource.size else {
             throw .failedGeneratingImageThumbnail(nil)
         }
 
-        let scale = min(1, Constants.highDynamicRangeThumbnailMaxPixelSize / max(sourceSize.width, sourceSize.height))
+        let scale = min(1, maxPixelSize / max(sourceSize.width, sourceSize.height))
         let targetSize = CGSize(width: max(1, floor(sourceSize.width * scale)),
                                 height: max(1, floor(sourceSize.height * scale)))
         let thumbnailMaxPixelSize = max(targetSize.width, targetSize.height)
@@ -487,7 +547,19 @@ struct MediaUploadingPreprocessor {
             kCGImageDestinationEncodeRequestOptions: [kCGImageDestinationEncodeBaseIsSDR: true]
         ]
         CGImageDestinationAddImage(imageDestination, hdrImage, encodeOptions as CFDictionary)
-        guard CGImageDestinationFinalize(imageDestination), isHighDynamicRangeImage(at: destination) else {
+        guard CGImageDestinationFinalize(imageDestination) else {
+            try? FileManager.default.removeItem(at: destination)
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        do {
+            try addUltraHDRCompatibilityMetadata(sourceURL: url, thumbnailURL: destination)
+        } catch {
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
+
+        guard isHighDynamicRangeImage(at: destination) else {
             try? FileManager.default.removeItem(at: destination)
             throw .failedGeneratingImageThumbnail(nil)
         }
@@ -500,11 +572,233 @@ struct MediaUploadingPreprocessor {
                      blurhash: blurhash)
     }
 
+    /// ImageIO and Core Image only write Apple's gain-map description on the auxiliary JPEG.
+    /// Android Ultra HDR additionally requires Adobe calibration XMP on that JPEG, Google
+    /// Container XMP on the primary JPEG and matching MPF lengths.
+    private func addUltraHDRCompatibilityMetadata(sourceURL: URL,
+                                                  thumbnailURL: URL) throws(MediaUploadingPreprocessorError) {
+        let sourceData: Data
+        var thumbnailData: Data
+        do {
+            sourceData = try Data(contentsOf: sourceURL)
+            thumbnailData = try Data(contentsOf: thumbnailURL)
+        } catch {
+            throw .failedGeneratingImageThumbnail(error)
+        }
+
+        guard let gainMapXMP = standardGainMapXMPApp1Segment(in: sourceData) ?? generatedGainMapXMPApp1Segment(at: sourceURL),
+              let initialMPF = mpfInfo(in: thumbnailData),
+              thumbnailData[initialMPF.secondImageOffset] == 0xFF,
+              thumbnailData[initialMPF.secondImageOffset + 1] == 0xD8 else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        thumbnailData.insert(contentsOf: gainMapXMP, at: initialMPF.secondImageOffset + 2)
+        let auxiliaryImageLength = initialMPF.secondImageLength + gainMapXMP.count
+        guard writeUInt32(auxiliaryImageLength,
+                          at: initialMPF.secondImageLengthOffset,
+                          byteOrder: initialMPF.byteOrder,
+                          in: &thumbnailData),
+            let containerXMP = ultraHDRContainerXMPApp1Segment(auxiliaryImageLength: auxiliaryImageLength) else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        // Inserting before the MPF segment moves both MPF and auxiliary JPEG equally, so the
+        // auxiliary data offset remains valid. The primary image length still needs updating.
+        thumbnailData.insert(contentsOf: containerXMP, at: 2)
+        guard let updatedMPF = mpfInfo(in: thumbnailData),
+              writeUInt32(updatedMPF.primaryImageLength + containerXMP.count,
+                          at: updatedMPF.primaryImageLengthOffset,
+                          byteOrder: updatedMPF.byteOrder,
+                          in: &thumbnailData) else {
+            throw .failedGeneratingImageThumbnail(nil)
+        }
+
+        do {
+            try thumbnailData.write(to: thumbnailURL, options: .atomic)
+        } catch {
+            throw .failedGeneratingImageThumbnail(error)
+        }
+    }
+
+    private func standardGainMapXMPApp1Segment(in data: Data) -> Data? {
+        let startOfImage = Data([0xFF, 0xD8])
+        let gainMapNamespace = Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)
+        let gainMapVersion = Data("Version=\"1.0\"".utf8)
+        let gainMapMaximum = Data("GainMapMax=\"".utf8)
+        var searchOffset = 0
+
+        while searchOffset + startOfImage.count <= data.count,
+              let imageRange = data.range(of: startOfImage, in: searchOffset..<data.count) {
+            var markerOffset = imageRange.upperBound
+            while markerOffset + 4 <= data.count, data[markerOffset] == 0xFF {
+                let marker = data[markerOffset + 1]
+                if marker == 0xDA || marker == 0xD9 { break }
+                if marker == 0x01 || (0xD0...0xD7).contains(marker) {
+                    markerOffset += 2
+                    continue
+                }
+
+                guard let segmentLength = readUInt16(at: markerOffset + 2, byteOrder: .bigEndian, in: data),
+                      segmentLength >= 2 else { break }
+                let segmentEnd = markerOffset + 2 + segmentLength
+                guard segmentEnd <= data.count else { break }
+                let payload = data[(markerOffset + 4)..<segmentEnd]
+                if marker == 0xE1,
+                   payload.range(of: gainMapNamespace) != nil,
+                   payload.range(of: gainMapVersion) != nil,
+                   payload.range(of: gainMapMaximum) != nil {
+                    return data[markerOffset..<segmentEnd]
+                }
+                markerOffset = segmentEnd
+            }
+            searchOffset = imageRange.upperBound
+        }
+        return nil
+    }
+
+    private func generatedGainMapXMPApp1Segment(at url: URL) -> Data? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let auxiliaryInfo = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap) ??
+              CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeHDRGainMap),
+              let metadataValue = (auxiliaryInfo as NSDictionary)[kCGImageAuxiliaryDataInfoMetadata] else {
+            return nil
+        }
+        let metadata = metadataValue as! CGImageMetadata
+        guard let metadataData = CGImageMetadataCreateXMPData(metadata, nil) as Data?,
+              let metadataXML = String(data: metadataData, encoding: .utf8),
+              let gainMapMinimum = firstXMLElementValue(named: "GainMapMin", in: metadataXML),
+              let gainMapMaximum = firstXMLElementValue(named: "GainMapMax", in: metadataXML) else {
+            return nil
+        }
+
+        let gamma = firstXMLElementValue(named: "Gamma", in: metadataXML) ?? "1.0"
+        let offsetSDR = firstXMLElementValue(named: "BaseOffset", in: metadataXML) ?? "0.0"
+        let offsetHDR = firstXMLElementValue(named: "AlternateOffset", in: metadataXML) ?? "0.0"
+        let capacityMinimum = firstXMLElementValue(named: "BaseHeadroom", in: metadataXML) ?? "0.0"
+        let capacityMaximum = firstXMLElementValue(named: "AlternateHeadroom", in: metadataXML) ?? gainMapMaximum
+        let xmp = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" hdrgm:GainMapMin="\(gainMapMinimum)" hdrgm:GainMapMax="\(gainMapMaximum)" hdrgm:Gamma="\(gamma)" hdrgm:OffsetSDR="\(offsetSDR)" hdrgm:OffsetHDR="\(offsetHDR)" hdrgm:HDRCapacityMin="\(capacityMinimum)" hdrgm:HDRCapacityMax="\(capacityMaximum)" hdrgm:BaseRenditionIsHDR="False"/></rdf:RDF></x:xmpmeta>
+        """
+        return xmpApp1Segment(xmp)
+    }
+
+    private func ultraHDRContainerXMPApp1Segment(auxiliaryImageLength: Int) -> Data? {
+        let xmp = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0"><Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="\(auxiliaryImageLength)"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>
+        """
+        return xmpApp1Segment(xmp)
+    }
+
+    private func xmpApp1Segment(_ xmp: String) -> Data? {
+        guard let xmpData = xmp.data(using: .utf8) else { return nil }
+        var payload = Data("http://ns.adobe.com/xap/1.0/\0".utf8)
+        payload.append(xmpData)
+        let segmentLength = payload.count + 2
+        guard segmentLength <= Int(UInt16.max) else { return nil }
+
+        var segment = Data([0xFF, 0xE1, UInt8(segmentLength >> 8), UInt8(segmentLength & 0xFF)])
+        segment.append(payload)
+        return segment
+    }
+
+    private func firstXMLElementValue(named name: String, in xml: String) -> String? {
+        guard let openingTag = xml.range(of: ":\(name)>"),
+              let closingTag = xml[openingTag.upperBound...].firstIndex(of: "<") else {
+            return nil
+        }
+        return String(xml[openingTag.upperBound..<closingTag])
+    }
+
+    private func mpfInfo(in data: Data) -> MPFInfo? {
+        guard let mpfRange = data.range(of: Data("MPF\0".utf8)) else { return nil }
+        let tiffOffset = mpfRange.upperBound
+        guard tiffOffset + 8 <= data.count else { return nil }
+        let byteOrder: MPFByteOrder
+        switch (data[tiffOffset], data[tiffOffset + 1]) {
+        case (0x4D, 0x4D): byteOrder = .bigEndian
+        case (0x49, 0x49): byteOrder = .littleEndian
+        default: return nil
+        }
+
+        guard let imageFileDirectoryRelativeOffset = readUInt32(at: tiffOffset + 4, byteOrder: byteOrder, in: data) else { return nil }
+        let imageFileDirectoryOffset = tiffOffset + imageFileDirectoryRelativeOffset
+        guard let entryCount = readUInt16(at: imageFileDirectoryOffset, byteOrder: byteOrder, in: data) else { return nil }
+        var mpEntryOffset: Int?
+        for index in 0..<entryCount {
+            let entryOffset = imageFileDirectoryOffset + 2 + index * 12
+            guard let tag = readUInt16(at: entryOffset, byteOrder: byteOrder, in: data),
+                  let valueOffset = readUInt32(at: entryOffset + 8, byteOrder: byteOrder, in: data) else { return nil }
+            if tag == 0xB002 {
+                mpEntryOffset = tiffOffset + valueOffset
+                break
+            }
+        }
+
+        guard let mpEntryOffset,
+              let primaryImageLength = readUInt32(at: mpEntryOffset + 4, byteOrder: byteOrder, in: data),
+              let secondImageLength = readUInt32(at: mpEntryOffset + 20, byteOrder: byteOrder, in: data),
+              let secondImageRelativeOffset = readUInt32(at: mpEntryOffset + 24, byteOrder: byteOrder, in: data) else { return nil }
+        let secondImageOffset = tiffOffset + secondImageRelativeOffset
+        guard secondImageOffset + 2 <= data.count else { return nil }
+        return .init(byteOrder: byteOrder,
+                     primaryImageLength: primaryImageLength,
+                     primaryImageLengthOffset: mpEntryOffset + 4,
+                     secondImageLength: secondImageLength,
+                     secondImageLengthOffset: mpEntryOffset + 20,
+                     secondImageOffset: secondImageOffset)
+    }
+
+    private func readUInt16(at offset: Int, byteOrder: MPFByteOrder, in data: Data) -> Int? {
+        guard offset >= 0, offset + 2 <= data.count else { return nil }
+        switch byteOrder {
+        case .bigEndian: return Int(data[offset]) << 8 | Int(data[offset + 1])
+        case .littleEndian: return Int(data[offset + 1]) << 8 | Int(data[offset])
+        }
+    }
+
+    private func readUInt32(at offset: Int, byteOrder: MPFByteOrder, in data: Data) -> Int? {
+        guard offset >= 0, offset + 4 <= data.count else { return nil }
+        let bytes = (0..<4).map { UInt32(data[offset + $0]) }
+        let value: UInt32
+        switch byteOrder {
+        case .bigEndian: value = bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]
+        case .littleEndian: value = bytes[3] << 24 | bytes[2] << 16 | bytes[1] << 8 | bytes[0]
+        }
+        return Int(value)
+    }
+
+    private func writeUInt32(_ value: Int, at offset: Int, byteOrder: MPFByteOrder, in data: inout Data) -> Bool {
+        guard value >= 0, value <= Int(UInt32.max), offset >= 0, offset + 4 <= data.count else { return false }
+        let value = UInt32(value)
+        let bytes: [UInt8]
+        switch byteOrder {
+        case .bigEndian: bytes = [UInt8(value >> 24), UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)]
+        case .littleEndian: bytes = [UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF), UInt8((value >> 16) & 0xFF), UInt8(value >> 24)]
+        }
+        data.replaceSubrange(offset..<(offset + 4), with: bytes)
+        return true
+    }
+
+    private enum MPFByteOrder {
+        case bigEndian
+        case littleEndian
+    }
+
+    private struct MPFInfo {
+        let byteOrder: MPFByteOrder
+        let primaryImageLength: Int
+        let primaryImageLengthOffset: Int
+        let secondImageLength: Int
+        let secondImageLengthOffset: Int
+        let secondImageOffset: Int
+    }
+
     private func isHighDynamicRangeImage(at url: URL) -> Bool {
         guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return false
         }
-        if hasAuxiliaryGainMap(in: imageSource) {
+        if hasAuxiliaryGainMap(in: imageSource) || hasEmbeddedUltraHDRGainMap(at: url) {
             return true
         }
 
@@ -531,6 +825,24 @@ struct MediaUploadingPreprocessor {
     private func hasAuxiliaryGainMap(in imageSource: CGImageSource) -> Bool {
         CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
             CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil
+    }
+
+    /// Detects a Google/Adobe JPEG/R gain map when ImageIO does not surface it.
+    /// Require both XMP namespaces and a valid MPF second JPEG to avoid treating an
+    /// arbitrary image that merely contains the namespace strings as HDR.
+    private func hasEmbeddedUltraHDRGainMap(at url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              data.range(of: Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)) != nil,
+              data.range(of: Data("http://ns.google.com/photos/1.0/container/".utf8)) != nil,
+              data.range(of: Data("GainMap".utf8)) != nil,
+              let mpf = mpfInfo(in: data),
+              mpf.secondImageLength > 0,
+              mpf.secondImageOffset + mpf.secondImageLength <= data.count,
+              data[mpf.secondImageOffset] == 0xFF,
+              data[mpf.secondImageOffset + 1] == 0xD8 else {
+            return false
+        }
+        return true
     }
 
     private func standardDynamicRangeImage(at url: URL) -> UIImage? {

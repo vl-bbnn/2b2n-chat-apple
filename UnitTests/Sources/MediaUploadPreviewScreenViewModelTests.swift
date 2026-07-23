@@ -190,7 +190,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         
         // Then the screen should be dismissed once all of the files have been sent.
         try await deferredDismiss.fulfill()
-        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 1)
+        #expect(timelineProxy.sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount == 1)
         #expect(timelineProxy.sendFileUrlFileInfoCaptionRequestHandleCallsCount == 2)
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1, "Only a loading indicator should be shown.")
     }
@@ -230,7 +230,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         
         // Then the screen should be dismissed so the user can see which files made it into the timeline.
         try await deferredDismiss.fulfill()
-        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 2)
+        #expect(timelineProxy.sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleCallsCount == 2)
         #expect(timelineProxy.sendFileUrlFileInfoCaptionRequestHandleCallsCount == 2)
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3, "Error indicators for each failure should be shown.")
     }
@@ -274,7 +274,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         timelineProxy.sendFileUrlFileInfoCaptionRequestHandleClosure = { [weak self] _, _, caption, _ in
             self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
         }
-        timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure = { [weak self] _, _, _, caption, _ in
+        timelineProxy.sendImageUrlThumbnailURLMediumPreviewImageInfoCaptionRequestHandleClosure = { [weak self] _, _, _, _, caption, _ in
             guard !simulateImageSendFailures else { return .failure(.sdkError(TestError.unknown)) }
             return self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
         }

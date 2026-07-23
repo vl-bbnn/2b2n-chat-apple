@@ -114,6 +114,7 @@ protocol TimelineControllerProtocol: Sendable {
     
     func sendImage(url: URL,
                    thumbnailURL: URL?,
+                   mediumPreview: ImagePreviewInfo?,
                    imageInfo: ImageInfo,
                    caption: String?,
                    requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError>

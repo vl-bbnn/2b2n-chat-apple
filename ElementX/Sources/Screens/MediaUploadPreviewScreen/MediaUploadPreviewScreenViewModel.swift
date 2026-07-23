@@ -130,9 +130,10 @@ class MediaUploadPreviewScreenViewModel: MediaUploadPreviewScreenViewModelType, 
         }
         
         switch mediaInfo {
-        case let .image(imageURL, thumbnailURL, imageInfo):
+        case let .image(imageURL, thumbnailURL, mediumPreview, imageInfo):
             return await timelineController.sendImage(url: imageURL,
                                                       thumbnailURL: thumbnailURL,
+                                                      mediumPreview: mediumPreview,
                                                       imageInfo: imageInfo,
                                                       caption: caption,
                                                       requestHandle: requestHandle)

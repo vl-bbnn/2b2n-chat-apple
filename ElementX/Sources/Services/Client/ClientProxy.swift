@@ -716,7 +716,7 @@ class ClientProxy: ClientProxyProtocol {
     }
     
     func setUserAvatar(media: MediaInfo) async -> Result<Void, ClientProxyError> {
-        guard case let .image(imageURL, _, _) = media, let mimeType = media.mimeType else {
+        guard case let .image(imageURL, _, _, _) = media, let mimeType = media.mimeType else {
             MXLog.error("Failed uploading, invalid media: \(media)")
             return .failure(.invalidMedia)
         }

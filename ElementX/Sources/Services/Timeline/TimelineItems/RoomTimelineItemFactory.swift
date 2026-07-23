@@ -10,6 +10,31 @@ import MatrixRustSDK
 import UIKit
 import UniformTypeIdentifiers
 
+nonisolated func parseMediumPreviewInfo(eventJSON: String?) -> ImageInfoProxy? {
+    guard let eventJSON,
+          let data = eventJSON.data(using: .utf8),
+          let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let content = event["content"] as? [String: Any] else {
+        return nil
+    }
+
+    let effectiveContent = content["m.new_content"] as? [String: Any] ?? content
+    guard let preview = effectiveContent["pro.bbnn.chat.medium_preview"] as? [String: Any],
+          let source = preview["source"] as? [String: Any],
+          let sourceData = try? JSONSerialization.data(withJSONObject: source),
+          let sourceJSON = String(data: sourceData, encoding: .utf8),
+          let mediaSource = try? MediaSource.fromJson(json: sourceJSON) else {
+        return nil
+    }
+
+    let info = preview["info"] as? [String: Any]
+    return ImageInfoProxy(source: mediaSource,
+                          width: (info?["w"] as? NSNumber)?.uint64Value,
+                          height: (info?["h"] as? NSNumber)?.uint64Value,
+                          mimeType: info?["mimetype"] as? String,
+                          fileSize: (info?["size"] as? NSNumber).map { UInt(truncating: $0) })
+}
+
 nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
     private let attributedStringBuilder: AttributedStringBuilderProtocol
     private let stateEventStringBuilder: RoomStateEventStringBuilder
@@ -69,7 +94,7 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                                                        isOutgoing: isOutgoing)
         case .callInvite:
             return buildCallInviteTimelineItem(for: eventItemProxy)
-        case .rtcNotification(let callIntent, let declinedBy):
+        case .rtcNotification(let callIntent, let declinedBy, _, _, _):
             return buildCallNotificationTimelineItem(for: eventItemProxy, isDM: isDM, callIntent: callIntent, declinedBy: declinedBy)
         }
     }
@@ -144,7 +169,7 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                               canBeRepliedTo: eventItemProxy.canBeRepliedTo,
                               shouldBoost: eventItemProxy.shouldBoost,
                               sender: eventItemProxy.sender,
-                              content: buildImageTimelineItemContent(imageMessageContent),
+                              content: buildImageTimelineItemContent(imageMessageContent, eventJSON: eventItemProxy.latestJSON),
                               properties: .init(replyDetails: buildTimelineItemReplyDetails(messageLikeContent.inReplyTo),
                                                 isThreaded: messageLikeContent.threadRoot != nil,
                                                 threadSummary: buildTimelineItemThreadSummary(messageLikeContent.threadSummary),
@@ -550,7 +575,8 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                                             contentType: UTType(mimeType: messageContent.info?.mimetype, fallbackFilename: messageContent.filename))
     }
     
-    private func buildImageTimelineItemContent(_ messageContent: ImageMessageContent) -> ImageRoomTimelineItemContent {
+    private func buildImageTimelineItemContent(_ messageContent: ImageMessageContent,
+                                               eventJSON: String? = nil) -> ImageRoomTimelineItemContent {
         let htmlCaption = messageContent.formattedCaption?.format == .html ? messageContent.formattedCaption?.body : nil
         let formattedCaption = htmlCaption != nil ? attributedStringBuilder.fromHTML(htmlCaption) : attributedStringBuilder.fromPlain(messageContent.caption)
         
@@ -565,6 +591,7 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                                        height: messageContent.info?.height,
                                        mimeType: messageContent.info?.mimetype,
                                        fileSize: messageContent.info?.size.map(UInt.init))
+        let mediumPreviewInfo = parseMediumPreviewInfo(eventJSON: eventJSON)
         
         return .init(filename: messageContent.filename,
                      caption: messageContent.caption,
@@ -572,10 +599,11 @@ nonisolated struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
                      formattedCaptionHTMLString: htmlCaption,
                      imageInfo: imageInfo,
                      thumbnailInfo: thumbnailInfo,
+                     mediumPreviewInfo: mediumPreviewInfo,
                      blurhash: messageContent.info?.blurhash,
                      contentType: UTType(mimeType: messageContent.info?.mimetype, fallbackFilename: messageContent.filename))
     }
-    
+
     private func buildVideoTimelineItemContent(_ messageContent: VideoMessageContent) -> VideoRoomTimelineItemContent {
         let htmlCaption = messageContent.formattedCaption?.format == .html ? messageContent.formattedCaption?.body : nil
         let formattedCaption = htmlCaption != nil ? attributedStringBuilder.fromHTML(htmlCaption) : attributedStringBuilder.fromPlain(messageContent.caption)

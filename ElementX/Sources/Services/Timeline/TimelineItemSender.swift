@@ -26,7 +26,7 @@ nonisolated struct TimelineItemSender: Identifiable, Hashable {
     
     init(senderID: String, senderProfile: ProfileDetails) {
         switch senderProfile {
-        case let .ready(displayName, isDisplayNameAmbiguous, avatarUrl):
+        case let .ready(displayName, isDisplayNameAmbiguous, avatarUrl, _, _):
             self.init(id: senderID,
                       displayName: displayName,
                       isDisplayNameAmbiguous: isDisplayNameAmbiguous,
