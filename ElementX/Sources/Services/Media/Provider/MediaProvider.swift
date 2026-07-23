@@ -7,10 +7,20 @@
 //
 
 import Combine
+import ImageIO
 import Kingfisher
 import UIKit
 
 nonisolated struct MediaProvider: MediaProviderProtocol {
+    /// Bump this whenever the encoded representation kept on disk changes. Version 1 caches may
+    /// contain a UIImage re-encoded by Kingfisher, which flattens HDR gain maps to SDR.
+    private static let imageCacheFormatVersion = 6
+    private static let imageCacheSerializer: DefaultCacheSerializer = {
+        var serializer = DefaultCacheSerializer()
+        serializer.preferCacheOriginalData = true
+        return serializer
+    }()
+
     private let mediaLoader: MediaLoaderProtocol
     private let imageCache: Kingfisher.ImageCache
     private let homeserverReachabilityPublisher: CurrentValuePublisher<HomeserverReachability, Never>?
@@ -39,6 +49,17 @@ nonisolated struct MediaProvider: MediaProviderProtocol {
         }
         
         let cacheKey = cacheKeyForURL(source.url, size: size)
+
+        // Kingfisher's default disk deserializer uses UIImage(data:), which doesn't opt in to HDR
+        // rendering. Read our original encoded bytes and decode them through UIImageReader instead.
+        if let imageData = await loadImageDataFromDiskCache(forKey: cacheKey),
+           let image = await decodeImage(data: imageData) {
+            try? await imageCache.store(image,
+                                        forKey: cacheKey,
+                                        cacheSerializer: Self.imageCacheSerializer,
+                                        toDisk: false)
+            return .success(image)
+        }
         
         if let cacheResult = try? await imageCache.retrieveImage(forKey: cacheKey, options: nil),
            let image = cacheResult.image {
@@ -53,17 +74,17 @@ nonisolated struct MediaProvider: MediaProviderProtocol {
                 imageData = try await mediaLoader.loadMediaContentForSource(source)
             }
             
-            var configuration = UIImageReader.Configuration()
-            configuration.prefersHighDynamicRange = true
-            configuration.preparesImagesForDisplay = true
-            guard let image = await UIImageReader(configuration: configuration).image(data: imageData) else {
+            guard let image = await decodeImage(data: imageData) else {
                 MXLog.error("Invalid image data")
                 return .failure(.invalidImageData)
             }
             
             // Keep the encoded gain map in the disk cache instead of letting the cache serializer
             // flatten the decoded UIImage to a conventional JPEG or PNG.
-            try await imageCache.store(image, original: imageData, forKey: cacheKey)
+            try await imageCache.store(image,
+                                       original: imageData,
+                                       forKey: cacheKey,
+                                       cacheSerializer: Self.imageCacheSerializer)
             
             return .success(image)
         } catch {
@@ -146,12 +167,51 @@ nonisolated struct MediaProvider: MediaProviderProtocol {
     }
     
     // MARK: - Private
+
+    private func loadImageDataFromDiskCache(forKey key: String) async -> Data? {
+        let diskStorage = imageCache.diskStorage
+        return await Task.detached(priority: .userInitiated) {
+            try? diskStorage.value(forKey: key)
+        }.value
+    }
+
+    private func decodeImage(data: Data) async -> UIImage? {
+        #if targetEnvironment(simulator)
+        // The iOS 26 Simulator identifies gain-map JPEGs but renders the resulting HDR UIImage
+        // as a black frame. Decode the SDR base rendition for Simulator UI tests while retaining
+        // the original HDR bytes in the disk cache. Physical devices continue through HDR decode.
+        return UIImage(data: data)
+        #else
+        guard isHighDynamicRangeImage(data: data) else {
+            return UIImage(data: data)
+        }
+
+        var configuration = UIImageReader.Configuration()
+        configuration.prefersHighDynamicRange = true
+        return await UIImageReader(configuration: configuration).image(data: data)
+        #endif
+    }
+
+    #if !targetEnvironment(simulator)
+    private func isHighDynamicRangeImage(data: Data) -> Bool {
+        if let imageSource = CGImageSourceCreateWithData(data as CFData, nil),
+           CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
+           CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil {
+            return true
+        }
+
+        // ImageIO does not expose Google's appended JPEG/R gain map on every OS version.
+        return data.range(of: Data("http://ns.google.com/photos/1.0/container/".utf8)) != nil &&
+            data.range(of: Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)) != nil
+    }
+    #endif
     
     private func cacheKeyForURL(_ url: URL, size: CGSize?) -> String {
+        let versionedURL = "v\(Self.imageCacheFormatVersion)|\(url.absoluteString)"
         if let size {
-            return "\(url.absoluteString){\(size.width),\(size.height)}"
+            return "\(versionedURL){\(size.width),\(size.height)}"
         } else {
-            return url.absoluteString
+            return versionedURL
         }
     }
 }

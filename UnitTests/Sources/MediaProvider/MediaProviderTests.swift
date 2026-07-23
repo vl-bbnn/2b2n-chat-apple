@@ -77,7 +77,7 @@ struct MediaProviderTests {
     func whenImageFromSourceWithSourceNotNilAndImageCacheContainsImage_ImageIsReturned() throws {
         let avatarSize = Avatars.Size.room(on: .timeline)
         let url = URL.mockMXCImage
-        let key = "\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
+        let key = "v6|\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
         let imageForKey = UIImage()
         imageCache.retrievedImagesInMemory[key] = imageForKey
         let image = try mediaProvider.imageFromSource(MediaSourceProxy(url: url, mimeType: "image/jpeg"),
@@ -96,7 +96,7 @@ struct MediaProviderTests {
     func whenLoadImageFromSourceAndImageCacheContainsImage_successIsReturned() async throws {
         let avatarSize = Avatars.Size.room(on: .timeline)
         let url = URL.mockMXCImage
-        let key = "\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
+        let key = "v6|\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
         let imageForKey = UIImage()
         imageCache.retrievedImagesInMemory[key] = imageForKey
         let result = try await mediaProvider.loadImageFromSource(MediaSourceProxy(url: url, mimeType: "image/jpeg"),
@@ -108,7 +108,7 @@ struct MediaProviderTests {
     func whenLoadImageFromSourceAndImageNotCachedAndRetrieveImageSucceeds_successIsReturned() async throws {
         let avatarSize = Avatars.Size.room(on: .timeline)
         let url = URL.mockMXCImage
-        let key = "\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
+        let key = "v6|\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
         let imageForKey = UIImage()
         imageCache.retrievedImages[key] = imageForKey
         let result = try await mediaProvider.loadImageFromSource(MediaSourceProxy(url: url, mimeType: "image/jpeg"),
@@ -137,7 +137,7 @@ struct MediaProviderTests {
     func whenLoadImageFromSourceAndImageNotCachedAndRetrieveImageFails_imageIsStored() async throws {
         let avatarSize = Avatars.Size.room(on: .timeline)
         let url = URL.mockMXCImage
-        let key = "\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
+        let key = "v6|\(url.absoluteString){\(avatarSize.scaledValue),\(avatarSize.scaledValue)}"
         let expectedImage = try loadTestImage()
         
         mediaLoader.loadMediaThumbnailForSourceWidthHeightReturnValue = expectedImage.pngData()
@@ -146,6 +146,7 @@ struct MediaProviderTests {
                                                         size: avatarSize.scaledSize)
         let storedImage = try #require(imageCache.storedImages[key])
         #expect(expectedImage.pngData() == storedImage.pngData())
+        #expect(imageCache.storedData[key] == expectedImage.pngData())
     }
     
     @Test

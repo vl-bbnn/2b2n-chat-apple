@@ -13,6 +13,7 @@ nonisolated class MockImageCache: ImageCache, @unchecked Sendable {
     var retrievedImagesInMemory = [String: UIImage]()
     var retrievedImages = [String: UIImage]()
     var storedImages = [String: UIImage]()
+    var storedData = [String: Data]()
     
     override func retrieveImageInMemoryCache(forKey key: String, options: KingfisherParsedOptionsInfo) -> KFCrossPlatformImage? {
         retrievedImagesInMemory[key]
@@ -37,6 +38,7 @@ nonisolated class MockImageCache: ImageCache, @unchecked Sendable {
                         callbackQueue: CallbackQueue = .untouch,
                         completionHandler: ((CacheStoreResult) -> Void)? = nil) {
         storedImages[key] = image
+        storedData[key] = serializer.data(with: image, original: original)
         completionHandler?(.init(memoryCacheResult: .success(()), diskCacheResult: .success(())))
     }
 }

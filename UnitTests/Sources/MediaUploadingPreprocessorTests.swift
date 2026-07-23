@@ -66,22 +66,28 @@ final class MediaUploadingPreprocessorTests {
         #expect(mediumPreview?.info.height == 1200)
 
         let resolvedThumbnailURL = try #require(thumbnailURL)
-        let thumbnailData = try Data(contentsOf: resolvedThumbnailURL)
-        let thumbnailSource = try #require(CGImageSourceCreateWithData(thumbnailData as CFData, nil))
-        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
-            CGImageSourceCopyAuxiliaryDataInfoAtIndex(thumbnailSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil)
-        #expect(thumbnailData.range(of: Data("http://ns.google.com/photos/1.0/container/".utf8)) != nil)
-        #expect(thumbnailData.range(of: Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)) != nil)
-        #expect(thumbnailData.range(of: Data("Item:Semantic=\"Primary\"".utf8)) != nil)
-        #expect(thumbnailData.range(of: Data("Item:Semantic=\"GainMap\"".utf8)) != nil)
+        let resolvedMediumPreviewURL = try #require(mediumPreview?.url)
+        try await assertHighDynamicRangePreview(at: resolvedThumbnailURL)
+        try await assertHighDynamicRangePreview(at: resolvedMediumPreviewURL)
+    }
+
+    private func assertHighDynamicRangePreview(at url: URL) async throws {
+        let data = try Data(contentsOf: url)
+        let imageSource = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil ||
+            CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil)
+        #expect(data.range(of: Data("http://ns.google.com/photos/1.0/container/".utf8)) != nil)
+        #expect(data.range(of: Data("http://ns.adobe.com/hdr-gain-map/1.0/".utf8)) != nil)
+        #expect(data.range(of: Data("Item:Semantic=\"Primary\"".utf8)) != nil)
+        #expect(data.range(of: Data("Item:Semantic=\"GainMap\"".utf8)) != nil)
 
         let startOfImage = Data([0xFF, 0xD8])
-        let auxiliaryImageRange = try #require(thumbnailData.range(of: startOfImage, options: .backwards))
-        let auxiliaryImageLength = thumbnailData.count - auxiliaryImageRange.lowerBound
-        #expect(thumbnailData.range(of: Data("Item:Length=\"\(auxiliaryImageLength)\"".utf8)) != nil)
+        let auxiliaryImageRange = try #require(data.range(of: startOfImage, options: .backwards))
+        let auxiliaryImageLength = data.count - auxiliaryImageRange.lowerBound
+        #expect(data.range(of: Data("Item:Length=\"\(auxiliaryImageLength)\"".utf8)) != nil)
         var configuration = UIImageReader.Configuration()
         configuration.prefersHighDynamicRange = true
-        #expect(await UIImageReader(configuration: configuration).image(data: thumbnailData)?.isHighDynamicRange == true)
+        #expect(await UIImageReader(configuration: configuration).image(data: data)?.isHighDynamicRange == true)
     }
 
     @Test
